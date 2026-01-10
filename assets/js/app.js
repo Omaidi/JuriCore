@@ -132,22 +132,36 @@ function initSession(session) {
 }
 
 function checkArchiveStatus() {
-    onValue(ref(db, 'archives'), (snap) => {
-        const btn = document.getElementById('btnOpenArchive');
-        if (!btn) return;
+    console.log("DEBUG: checkArchiveStatus started...");
+    const btn = document.getElementById('btnOpenArchive');
+    if (!btn) {
+        console.warn("DEBUG: Button btnOpenArchive NOT FOUND in DOM");
+        return;
+    }
 
-        if (snap.exists() && snap.numChildren() > 0) {
+    const archivesRef = ref(db, 'archives');
+    onValue(archivesRef, (snap) => {
+        const val = snap.val();
+        console.log("DEBUG: Archive Snapshot Value:", val);
+        const count = snap.exists() ? snap.numChildren() : 0;
+        console.log("DEBUG: Archive Count:", count);
+
+        if (snap.exists() && count > 0) {
             // Ada Arsip -> HIJAU
-            btn.style.borderColor = '#10b981'; // green-500
+            console.log("DEBUG: Setting Button to GREEN");
+            btn.style.borderColor = '#10b981';
             btn.style.color = '#10b981';
-            btn.innerHTML = '<i class="fas fa-folder-open"></i> Buka Arsip Lama (Ada Data)';
+            btn.style.opacity = '1';
+            btn.innerHTML = `<i class="fas fa-folder-open"></i> Buka Arsip Lama (${count} Data)`;
+            // Force redraw hack if needed, but style change should trigger
         } else {
             // Kosong -> ABU-ABU
-            btn.style.borderColor = '#64748b'; // slate-500
+            console.log("DEBUG: Setting Button to GRAY");
+            btn.style.borderColor = '#64748b';
             btn.style.color = '#64748b';
             btn.innerHTML = '<i class="fas fa-folder-open"></i> Buka Arsip Lama (Kosong)';
         }
-    });
+    }); // Listener ini akan terus aktif
 }
 
 
