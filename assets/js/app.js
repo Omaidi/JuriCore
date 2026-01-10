@@ -297,12 +297,15 @@ function renderParticipants(participantsMap) {
             }
         }
 
-        // 3. Inputs
+
+        // 3. Inputs Logic
         const inputsContainer = document.getElementById(`inputs-${id}`);
         const criteria = appState.data.config.criteria || [];
 
         // Determine Input Lock State (Perm Locked or Soft Submitted)
-        const disableInputs = isPermLocked || isSubmitted;
+        // ADMIN Should NOT be able to edit scores.
+        const isAdmin = appState.user.role === 'admin';
+        const disableInputs = isPermLocked || isSubmitted || isAdmin;
 
         // Ensure inputs match criteria length
         let existingInputs = inputsContainer.querySelectorAll('input');
@@ -327,6 +330,7 @@ function renderParticipants(participantsMap) {
             existingInputs = inputsContainer.querySelectorAll('input');
         }
 
+
         // Update Values & Attributes
         existingInputs.forEach((inp, idx) => {
             const criterion = criteria[idx];
@@ -338,34 +342,39 @@ function renderParticipants(participantsMap) {
 
             // Update attributes
             inp.setAttribute('max', maxVal);
-            inp.setAttribute('data-crit', critName);
-            inp.setAttribute('oninput', `window.handleInput('${id}', ${idx}, this, ${maxVal})`);
 
-            // Value update
-            if (document.activeElement !== inp) {
-                const displayVal = (serverVal === undefined || serverVal === null) ? '' : serverVal;
-                if (inp.value != displayVal) inp.value = displayVal;
-            }
+            // Disable if Admin or Locked
+            if (inp.disabled !== disableInputs) inp.disabled = disableInputs;
 
-            // Lock State
-            inp.disabled = disableInputs;
+            // Visual cue
             inp.style.opacity = disableInputs ? '0.6' : '1';
             inp.style.cursor = disableInputs ? 'not-allowed' : 'text';
-            inp.style.backgroundColor = disableInputs ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)';
+
+            // Only update value if NOT focused to avoid cursor jumping
+            if (document.activeElement !== inp) {
+                // If server has value, show it. If 0/undefined, show empty string visually or 0
+                const displayVal = (serverVal !== undefined) ? serverVal : '';
+                if (inp.value != displayVal) {
+                    inp.value = displayVal;
+                }
+            }
         });
-    });
+    }); // END renderParticipants Loop
 
     // LIST ADMIN (Simple redraw is fine here as no inputs)
     const list = document.getElementById('participantListAdmin');
-    list.innerHTML = sorted.map(([id, p]) => `
-        <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>${p.name}</span>
-            <div>
-                <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
-                <button onclick="window.deleteParticipant('${id}')" class="text-danger"><i class="fas fa-trash"></i></button>
+    if (list) {
+        list.innerHTML = sorted.map(([id, p]) => `
+            <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>${p.name}</span>
+                <div>
+                     <!-- Lock indicator logic -->
+                    <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
+                    <button onclick="window.deleteParticipant('${id}')" class="text-danger"><i class="fas fa-trash"></i></button>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
 function getPredikat(score) {
