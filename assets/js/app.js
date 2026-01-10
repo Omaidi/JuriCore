@@ -2,6 +2,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getDatabase, ref, set, onValue, update, push, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { firebaseConfig } from './firebase-config.js';
 
+
+// === DEBUG LOGGER & KEYBOARD BLOCKER ===
+// Mencegah F12 (Kalkulator issue di beberapa keyboard layout) dan mencegah inspeksi elemen
+document.addEventListener("keydown", function (e) {
+    if (e.keyCode === 123) { // F12
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    }
+    // Prevent Ctrl+Shift+I (DevTools)
+    if (e.ctrlKey && e.shiftKey && e.keyCode === 73) {
+        e.preventDefault();
+        return false;
+    }
+});
+
 // === GLOBAL STATE ===
 const appState = {
     user: null, // { role: 'admin' | 'judge', token: string }
