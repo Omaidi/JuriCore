@@ -1,0 +1,6 @@
+@echo off
+echo Starting Juri Pro 2.0 (Fast Mode)...
+echo Server is starting...
+start http://localhost:3000
+node server.js
+pause
