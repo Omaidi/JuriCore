@@ -1,0 +1,12 @@
+node_modules/
+/dist
+/www
+!/www/index.html
+!/www/assets/**
+!/www/manifest.json
+!/www/sw.js
+.DS_Store
+android/app/build
+android/.gradle
+android/local.properties
+.env
