@@ -804,12 +804,16 @@ window.toggleArchiveView = () => {
                                 <small class="text-muted"><i class="far fa-calendar"></i> ${date} • <i class="fas fa-users"></i> ${pCount} Peserta</small>
                             </div>
                         </div>
+
                         <div style="display:flex; gap:5px; width:100%;">
                             <button onclick="window.loadArchive('${key}')" class="btn-sm" style="flex:1; background:#475569; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Laporan PDF">
                                  <i class="fas fa-file-pdf"></i> PDF
                             </button>
                             <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="flex:1; background:#10b981; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
                                  <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button onclick="window.deleteArchive('${key}')" class="btn-sm" style="flex:0.5; background:#ef4444; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Hapus Arsip">
+                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </li>
@@ -823,6 +827,29 @@ window.toggleArchiveView = () => {
         console.log("DEBUG: Hiding archive section...");
         section.style.display = 'none';
     }
+};
+
+window.deleteArchive = (key) => {
+    Swal.fire({
+        title: 'Hapus Arsip Ini?',
+        text: "Data yang dihapus tidak dapat dikembalikan!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            remove(ref(db, `archives/${key}`))
+                .then(() => {
+                    Swal.fire('Terhapus!', 'Data arsip telah dihapus.', 'success');
+                })
+                .catch((err) => {
+                    Swal.fire('Gagal', 'Gagal menghapus: ' + err.message, 'error');
+                });
+        }
+    });
 };
 
 
