@@ -159,17 +159,24 @@ function checkArchiveStatus() {
     onValue(archivesRef, (snap) => {
         const val = snap.val();
         console.log("DEBUG: Archive Snapshot Value:", val);
-        const count = snap.exists() ? snap.numChildren() : 0;
+
+        // Fix: Manual Key Counting if numChildren not available (e.g. older SDK or weird context)
+        // snap.numChildren() should work, but error says "not a function".
+        // Alternatif: Count keys from val
+        let count = 0;
+        if (snap.exists() && val) {
+            count = Object.keys(val).length;
+        }
+
         console.log("DEBUG: Archive Count:", count);
 
-        if (snap.exists() && count > 0) {
+        if (count > 0) {
             // Ada Arsip -> HIJAU
             console.log("DEBUG: Setting Button to GREEN");
             btn.style.borderColor = '#10b981';
             btn.style.color = '#10b981';
             btn.style.opacity = '1';
             btn.innerHTML = `<i class="fas fa-folder-open"></i> Buka Arsip Lama (${count} Data)`;
-            // Force redraw hack if needed, but style change should trigger
         } else {
             // Kosong -> ABU-ABU
             console.log("DEBUG: Setting Button to GRAY");
