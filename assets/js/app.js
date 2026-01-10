@@ -117,6 +117,7 @@ function initSession(session) {
     startRealtimeSync();
     hideLoading();
 
+
     // Show Global Lock for JUDGE (Not Admin)
     if (session.role !== 'admin') {
         const ga = document.getElementById('globalActions');
@@ -124,8 +125,31 @@ function initSession(session) {
     } else {
         const ga = document.getElementById('globalActions');
         if (ga) ga.style.display = 'none';
+
+        // ADMIN SPECIFIC: Monitor Archive Existence to Color the Button
+        checkArchiveStatus();
     }
 }
+
+function checkArchiveStatus() {
+    onValue(ref(db, 'archives'), (snap) => {
+        const btn = document.getElementById('btnOpenArchive');
+        if (!btn) return;
+
+        if (snap.exists() && snap.numChildren() > 0) {
+            // Ada Arsip -> HIJAU
+            btn.style.borderColor = '#10b981'; // green-500
+            btn.style.color = '#10b981';
+            btn.innerHTML = '<i class="fas fa-folder-open"></i> Buka Arsip Lama (Ada Data)';
+        } else {
+            // Kosong -> ABU-ABU
+            btn.style.borderColor = '#64748b'; // slate-500
+            btn.style.color = '#64748b';
+            btn.innerHTML = '<i class="fas fa-folder-open"></i> Buka Arsip Lama (Kosong)';
+        }
+    });
+}
+
 
 function startRealtimeSync() {
     // 1. Config
@@ -718,15 +742,21 @@ window.toggleArchiveView = () => {
                 const date = item.dateDisplay || new Date(item.timestamp).toLocaleDateString();
                 const pCount = item.participants ? Object.keys(item.participants).length : 0;
 
+
                 html += `
                     <li style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.05);">
                         <div>
                             <div style="font-weight:bold; color:var(--primary); font-size:1.05em;">${title}</div>
                             <small class="text-muted"><i class="far fa-calendar"></i> ${date} • <i class="fas fa-users"></i> ${pCount} Peserta</small>
                         </div>
-                        <button onclick="window.loadArchive('${key}')" class="btn-sm" style="background:#475569; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s">
-                             <i class="fas fa-file-pdf"></i> PDF
-                        </button>
+                        <div style="display:flex; gap:5px;">
+                            <button onclick="window.loadArchive('${key}')" class="btn-sm" style="background:#475569; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s" title="Download Laporan PDF">
+                                 <i class="fas fa-file-pdf"></i> PDF
+                            </button>
+                            <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="background:#10b981; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
+                                 <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                        </div>
                     </li>
                 `;
             });
@@ -750,7 +780,10 @@ window.loadArchive = (key) => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        doc.text(`ARSIP: ${item.config.title} (${item.dateDisplay})`, 14, 20);
+        const title = item.config.title || "Tanpa Judul";
+        const date = item.dateDisplay || "-";
+
+        doc.text(`ARSIP: ${title} (${date})`, 14, 20);
 
         const crit = item.config.criteria || [];
         const parts = Object.values(item.participants || {})
@@ -771,8 +804,51 @@ window.loadArchive = (key) => {
             body: rows,
             startY: 30,
         });
-        doc.save(`Arsip-${item.config.title}.pdf`);
+        doc.save(`Arsip-${title}.pdf`);
         Swal.fire({ toast: true, icon: 'success', title: 'Laporan Arsip diunduh' });
+    }, { onlyOnce: true });
+};
+
+window.downloadArchiveExcel = (key) => {
+    onValue(ref(db, `archives/${key}`), (snapshot) => {
+        const item = snapshot.val();
+        if (!item) return;
+
+        const title = item.config.title || "Lomba";
+        const crit = item.config.criteria || [];
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Nama Peserta,Total Nilai,Predikat/Juara";
+
+        // Add Criteria Headers ? Optional. Keeping simple as requested first.
+        // csvContent += "," + crit.map(c => c.name).join(","); 
+        csvContent += "\n";
+
+        const parts = Object.values(item.participants || {})
+            .map(p => {
+                let total = 0;
+                crit.forEach(c => {
+                    total += parseFloat(p.scores?.[c.name] || 0);
+                });
+                return { ...p, finalScore: Math.round(total) };
+            })
+            .sort((a, b) => b.finalScore - a.finalScore);
+
+        parts.forEach((p) => {
+            const pred = getPredikat(p.finalScore);
+            const row = `"${p.name}",${p.finalScore},${pred.label}`;
+            csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Arsip-${title}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Swal.fire({ toast: true, icon: 'success', title: 'Excel Arsip diunduh' });
     }, { onlyOnce: true });
 };
 
