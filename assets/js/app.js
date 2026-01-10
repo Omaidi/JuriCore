@@ -744,13 +744,30 @@ window.saveToArchive = () => {
 };
 
 window.toggleArchiveView = () => {
+    console.log("DEBUG: toggleArchiveView called");
     const section = document.getElementById('archiveSection');
+    if (!section) {
+        console.error("DEBUG: archiveSection element not found!");
+        return;
+    }
+
     // Toggle Logic
-    if (section.style.display === 'none') {
+    const isHidden = (window.getComputedStyle(section).display === 'none');
+    console.log("DEBUG: Current display state:", section.style.display, "Computed:", window.getComputedStyle(section).display);
+
+    if (isHidden) {
+        console.log("DEBUG: Showing archive section...");
         section.style.display = 'block';
+
+        // Auto Scroll to Section (UX Improvement for Mobile)
+        setTimeout(() => {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
 
         // INIT LOAD
         const listEl = document.getElementById('archiveList');
+        if (!listEl) return;
+
         listEl.innerHTML = `
             <div style="text-align:center; padding:10px;">
                 <i class="fas fa-spinner fa-spin"></i> Memuat Data Arsip...
@@ -777,20 +794,21 @@ window.toggleArchiveView = () => {
                 const item = data[key];
                 const title = item.config?.title || "Tanpa Judul";
                 const date = item.dateDisplay || new Date(item.timestamp).toLocaleDateString();
-                const pCount = item.participants ? Object.keys(item.participants).length : 0;
-
+                const pCount = item.participants ? Object.keys(item.participants).length : 0; // Fix safe access
 
                 html += `
-                    <li style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.05);">
-                        <div>
-                            <div style="font-weight:bold; color:var(--primary); font-size:1.05em;">${title}</div>
-                            <small class="text-muted"><i class="far fa-calendar"></i> ${date} • <i class="fas fa-users"></i> ${pCount} Peserta</small>
+                    <li style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; flex-direction:column; gap:8px; border:1px solid rgba(255,255,255,0.05);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                            <div>
+                                <div style="font-weight:bold; color:var(--primary); font-size:1.05em;">${title}</div>
+                                <small class="text-muted"><i class="far fa-calendar"></i> ${date} • <i class="fas fa-users"></i> ${pCount} Peserta</small>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:5px;">
-                            <button onclick="window.loadArchive('${key}')" class="btn-sm" style="background:#475569; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s" title="Download Laporan PDF">
+                        <div style="display:flex; gap:5px; width:100%;">
+                            <button onclick="window.loadArchive('${key}')" class="btn-sm" style="flex:1; background:#475569; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Laporan PDF">
                                  <i class="fas fa-file-pdf"></i> PDF
                             </button>
-                            <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="background:#10b981; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
+                            <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="flex:1; background:#10b981; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
                                  <i class="fas fa-file-excel"></i> Excel
                             </button>
                         </div>
@@ -802,6 +820,7 @@ window.toggleArchiveView = () => {
         }); // Realtime listener (no onlyOnce)
 
     } else {
+        console.log("DEBUG: Hiding archive section...");
         section.style.display = 'none';
     }
 };
