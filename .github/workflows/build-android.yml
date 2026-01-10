@@ -1,0 +1,49 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web Assets
+        run: npm run build --if-present
+        # Note: If you don't have a build script, ensure 'www' is committed or generated here.
+        # Since we use plain HTML/JS in 'www', we just ensure it exists.
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build APK (Debug)
+        working-directory: ./android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JuriPro-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk

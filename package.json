@@ -1,0 +1,27 @@
+{
+  "name": "juri-core",
+  "version": "1.0.0",
+  "description": "Aplikasi penilaian lomba online dengan desain premium dan koneksi Realtime Firebase.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Omaidi/JuriCore.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Omaidi/JuriCore/issues"
+  },
+  "homepage": "https://github.com/Omaidi/JuriCore#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  }
+}

@@ -19,10 +19,10 @@ const MIME_TYPES = {
 const server = http.createServer((req, res) => {
     console.log(`REQ: ${req.url}`);
 
-    // Normalize path
-    let filePath = '.' + req.url;
-    if (filePath === './') {
-        filePath = './index.html';
+    // Normalize path to www directory
+    let filePath = './www' + req.url;
+    if (filePath === './www/') {
+        filePath = './www/index.html';
     }
 
     const extname = path.extname(filePath);

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JURI PRO | Live Judging System</title>
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/icon.png">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Animations -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- PDF Libs (Global Scope needed sometimes, but we'll try to use modules or just load global) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+
+    <!-- BACKGROUND ANIMATION -->
+    <div class="bg-gradient"></div>
+    <div class="bg-blur"></div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner-box">
+            <div class="pulse-container">
+                <div class="pulse-bubble pulse-bubble-1"></div>
+                <div class="pulse-bubble pulse-bubble-2"></div>
+                <div class="pulse-bubble pulse-bubble-3"></div>
+            </div>
+            <h3 class="loading-text">Memuat Sistem...</h3>
+        </div>
+    </div>
+
+    <!-- AUTH SECTION -->
+    <section id="authSection" class="full-screen-center hidden">
+        <div class="glass-card auth-card animate__animated animate__zoomIn">
+            <div class="auth-header">
+                <div class="logo-box">
+                    <i class="fas fa-gavel"></i>
+                </div>
+                <h1>JURI PRO</h1>
+                <p>Sistem Penilaian Kompetisi Digital</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="tab-btn active" data-tab="admin" onclick="window.switchTab('admin')">Admin</button>
+                <button class="tab-btn" data-tab="judge" onclick="window.switchTab('judge')">Juri</button>
+            </div>
+
+            <div class="auth-body">
+                <!-- Admin Form -->
+                <div id="adminForm" class="auth-form">
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="adminPass" placeholder="Password Admin">
+                    </div>
+                    <button class="btn-primary" onclick="window.attemptLogin('admin')">
+                        LOGIN ADMIN <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <!-- Judge Form -->
+                <div id="judgeForm" class="auth-form hidden">
+                    <div class="input-group">
+                        <i class="fas fa-ticket-alt"></i>
+                        <input type="text" id="judgeToken" placeholder="Masukkan Token Juri"
+                            style="text-transform:uppercase">
+                    </div>
+                    <button class="btn-primary" onclick="window.attemptLogin('judge')">
+                        MASUK SEBAGAI JURI <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+                <p id="loginError" class="error-msg"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- MAIN APP SECTION -->
+    <section id="appSection" class="hidden">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="brand">
+                <i class="fas fa-layer-group"></i>
+                <span>JURI PRO</span>
+            </div>
+
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="scoring" onclick="window.navTo('scoring')">
+                    <i class="fas fa-star"></i>
+                    <span>Penilaian</span>
+                </li>
+                <li class="nav-item" data-page="standings" onclick="window.navTo('standings')">
+                    <i class="fas fa-trophy"></i>
+                    <span>Klasemen</span>
+                </li>
+                <li class="nav-item admin-only" data-page="participants" onclick="window.navTo('participants')">
+                    <i class="fas fa-users"></i>
+                    <span>Peserta</span>
+                </li>
+                <li class="nav-item admin-only" data-page="settings" onclick="window.navTo('settings')">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Pengaturan</span>
+                </li>
+            </ul>
+
+            <div class="nav-footer">
+                <button class="btn-logout" onclick="window.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Keluar
+                </button>
+            </div>
+        </nav>
+
+        <!-- Content Area -->
+        <main class="main-content">
+            <!-- Header Mobile -->
+            <header class="mobile-header">
+                <div class="brand-mobile">JURI PRO</div>
+                <button class="menu-toggle" onclick="window.toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </header>
+
+            <!-- Pages -->
+            <div id="page-scoring" class="page-view animate__animated animate__fadeIn">
+                <div class="page-header">
+                    <h2 id="competitionTitleDisplay">Loading...</h2>
+                    <span class="badge" id="userRoleDisplay">Tamu</span>
+                </div>
+
+                <!-- Scoring Grid -->
+                <div id="scoringContainer" class="scoring-grid" style="padding-bottom: 80px;">
+                    <!-- Cards Injected Here -->
+                </div>
+
+                <!-- Global Action Bar -->
+                <div id="globalActions" class="animate__animated animate__fadeInUp"
+                    style="position:fixed; bottom:0; left:0; width:100%; padding:20px; background:rgba(15,23,42,0.95); border-top:1px solid rgba(255,255,255,0.1); z-index:90; display:flex; justify-content:center; display:none;">
+                    <button onclick="window.lockAllValues()" id="btnGlobalLock" class="btn-primary"
+                        style="background:#ef4444; max-width:400px; box-shadow:0 4px 15px rgba(239, 68, 68, 0.4);">
+                        <i class="fas fa-lock"></i> KUNCI SEMUA NILAI (FINAL)
+                    </button>
+                </div>
+            </div>
+
+            <div id="page-standings" class="page-view hidden animate__animated animate__fadeIn">
+                <div class="page-header">
+                    <h2>Klasemen Sementara</h2>
+                    <div id="btnGroupExport">
+                        <button class="btn-secondary" onclick="window.downloadPDF()">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn-secondary" style="background:#10b981; margin-left:5px"
+                            onclick="window.downloadExcel()">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="leaderboard-card">
+                    <table class="premium-table">
+                        <thead>
+                            <tr>
+                                <th>Nama Peserta</th>
+                                <th class="text-center">Total Skor</th>
+                                <th class="text-right">Rank / Predikat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standingsTable">
+                            <!-- Rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="page-participants" class="page-view hidden animate__animated animate__fadeIn">
+                <div class="page-header">
+                    <h2>Data Peserta</h2>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-primary" style="background:#ef4444;"
+                            onclick="window.deleteAllParticipants()">
+                            <i class="fas fa-trash-alt"></i> Hapus Semua
+                        </button>
+                        <button class="btn-primary" onclick="window.openAddModal()">
+                            <i class="fas fa-plus"></i> Tambah Peserta
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-list" id="participantListAdmin">
+                    <!-- Admin Management List -->
+                </div>
+            </div>
+
+            <div id="page-settings" class="page-view hidden animate__animated animate__fadeIn">
+                <div class="page-header">
+                    <h2>Pengaturan Kompetisi</h2>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="glass-panel">
+                        <h3><i class="fas fa-pen"></i> Info Lomba</h3>
+                        <div class="form-group">
+                            <label>Nama Lomba</label>
+                            <input type="text" id="confTitle" class="form-control" onchange="window.saveSettings()">
+                        </div>
+                    </div>
+
+                    <div class="glass-panel">
+                        <h3><i class="fas fa-tasks"></i> Kriteria Penilaian</h3>
+                        <div id="criteriaListConfig"></div>
+                        <div id="totalPointsFeedback" class="text-right text-sm mt-2 mb-2 font-bold"></div>
+                        <div class="d-flex" style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn-outline" style="flex:1" onclick="window.addCriteria()">+ Tambah</button>
+                            <button class="btn-outline"
+                                style="flex:1; border-color:var(--primary); color:var(--primary)"
+                                onclick="window.autoDistribute()">
+                                <i class="fas fa-magic"></i> Auto 100 Poin
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel">
+                        <h3><i class="fas fa-key"></i> Akses Juri & Arsip</h3>
+                        <div class="form-group mb-3">
+                            <label>Token Login Juri</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="confJudgeToken" class="form-control" placeholder="JURI123"
+                                    onchange="window.saveSettings()">
+                                <button class="btn-secondary" onclick="window.saveSettings()"><i
+                                        class="fas fa-save"></i></button>
+                            </div>
+                        </div>
+                        <p class="hint">Token ini digunakan Juri untuk login.</p>
+
+                        <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+
+                        <button onclick="window.saveToArchive()" class="btn-outline"
+                            style="width:100%; color:#facc15; border-color:#facc15;">
+                            <i class="fas fa-archive"></i> Simpan ke Arsip Lomba
+                        </button>
+                        <button id="btnOpenArchive" onclick="window.toggleArchiveView()" class="btn-outline"
+                            style="width:100%; margin-top:10px; color:#64748b; border-color:#64748b;">
+                            <i class="fas fa-folder-open"></i> Buka Arsip Lama
+                        </button>
+                    </div>
+
+                    <!-- ARCHIVE VIEWER (Initially Hidden) -->
+                    <div id="archiveSection" class="glass-panel" style="grid-column: 1 / -1; display:none;">
+                        <h3><i class="fas fa-history"></i> Riwayat Lomba (Arsip)</h3>
+                        <div id="archiveList" style="max-height: 300px; overflow-y: auto;">
+                            <!-- Archives -->
+                            <p class="text-muted">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </section>
+
+    <!-- MODULE ENTRY POINT -->
+    <!-- MODULE ENTRY POINT -->
+    <script type="module" src="assets/js/app.js?v=2.2"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW Registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('SW Registration Failed:', error);
+                    });
+            });
+        }
+    </script>
+
+</body>
+
+</html>
