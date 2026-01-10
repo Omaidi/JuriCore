@@ -427,7 +427,12 @@ function renderParticipants(participantsMap) {
     if (list) {
         list.innerHTML = sorted.map(([id, p]) => `
             <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>${p.name}</span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span id="pNameAdmin-${id}">${p.name}</span>
+                    <button onclick="window.editParticipantName('${id}', '${p.name.replace(/'/g, "\\'")}')" class="btn-sm text-primary" style="background:none; border:none; cursor:pointer;" title="Edit Nama">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
                 <div>
                      <!-- Lock indicator logic -->
                     <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
@@ -558,6 +563,65 @@ window.lockAllValues = () => {
             } else {
                 Swal.fire('Info', 'Tidak ada data peserta.', 'info');
             }
+        }
+    });
+};
+
+
+window.deleteAllParticipants = () => {
+    Swal.fire({
+        title: 'Hapus SEMUA Peserta?',
+        text: "PERINGATAN: Seluruh data peserta dan nilai akan dihapus PERMANEN! Tindakan ini tidak bisa dibatalkan.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'YA, HAPUS SEMUA!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Double Confirmation
+            Swal.fire({
+                title: 'Benar-benar yakin?',
+                text: "Ketik 'HAPUS' untuk konfirmasi",
+                input: 'text',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                preConfirm: (val) => {
+                    if (val !== 'HAPUS') {
+                        Swal.showValidationMessage('Konfirmasi salah!');
+                    }
+                }
+            }).then((res2) => {
+                if (res2.isConfirmed) {
+                    remove(ref(db, 'participants'))
+                        .then(() => Swal.fire('Direset', 'Semua data peserta telah dihapus.', 'success'))
+                        .catch(err => Swal.fire('Error', err.message, 'error'));
+                }
+            });
+        }
+    });
+};
+
+window.editParticipantName = (id, currentName) => {
+    Swal.fire({
+        title: 'Edit Nama Peserta',
+        input: 'text',
+        inputValue: currentName,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        preConfirm: (name) => {
+            if (!name) return Swal.showValidationMessage('Nama tidak boleh kosong');
+            return name;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            update(ref(db, `participants/${id}`), { name: result.value })
+                .then(() => {
+                    Swal.fire({ toast: true, icon: 'success', title: 'Nama diperbarui', timer: 1500, showConfirmButton: false });
+                })
+                .catch(err => Swal.fire('Gagal', err.message, 'error'));
         }
     });
 };

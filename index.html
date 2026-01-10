@@ -192,9 +192,15 @@
             <div id="page-participants" class="page-view hidden animate__animated animate__fadeIn">
                 <div class="page-header">
                     <h2>Data Peserta</h2>
-                    <button class="btn-primary" onclick="window.openAddModal()">
-                        <i class="fas fa-plus"></i> Tambah Peserta
-                    </button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-primary" style="background:#ef4444;"
+                            onclick="window.deleteAllParticipants()">
+                            <i class="fas fa-trash-alt"></i> Hapus Semua
+                        </button>
+                        <button class="btn-primary" onclick="window.openAddModal()">
+                            <i class="fas fa-plus"></i> Tambah Peserta
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card-list" id="participantListAdmin">
