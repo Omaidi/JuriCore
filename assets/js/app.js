@@ -159,7 +159,10 @@ function startRealtimeSync() {
 function updateUIConfig(config) {
     document.getElementById('competitionTitleDisplay').innerText = config.title;
     document.getElementById('confTitle').value = config.title;
-    document.getElementById('tokenDisplay').innerText = config.judgeToken;
+
+    // Update Token Input if exists (Renamed from tokenDisplay)
+    const tokenInp = document.getElementById('confJudgeToken');
+    if (tokenInp) tokenInp.value = config.judgeToken || '';
 
     // Criteria List
     const cList = document.getElementById('criteriaListConfig');
@@ -187,22 +190,34 @@ function updateUIConfig(config) {
 
 
 // INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
+// INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
 function renderParticipants(participantsMap) {
     const grid = document.getElementById('scoringContainer');
-    const sorted = Object.entries(participantsMap).sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
 
-    if (sorted.length === 0) {
-        grid.innerHTML = '<div class="empty-state">Belum ada peserta.</div>';
+    // Safety & Empty State Handler
+    if (!participantsMap || Object.keys(participantsMap).length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list" style="font-size:3em; color:var(--text-muted); margin-bottom:10px;"></i>
+                <p>Belum ada peserta.</p>
+            </div>
+        `;
         return;
     }
 
-    // Remove deleted items
+    // Sort participants
+    const sorted = Object.entries(participantsMap).sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+
+    // 1. Remove deleted items (items in DOM but not in new Data)
     Array.from(grid.children).forEach(child => {
-        if (!participantsMap[child.dataset.pid] && !child.classList.contains('empty-state')) {
-            child.remove();
+        if (child.classList.contains('empty-state')) {
+            child.remove(); // Remove empty state if we have data
+        } else if (child.dataset.pid && !participantsMap[child.dataset.pid]) {
+            child.remove(); // Remove participant card
         }
     });
 
+    // 2. Add or Update items
     sorted.forEach(([id, p]) => {
         let card = document.getElementById(`card-${id}`);
         const totalScore = calculateTotal(p.scores, appState.data.config.criteria);
@@ -479,27 +494,102 @@ window.lockAllValues = () => {
 
 window.openAddModal = () => {
     Swal.fire({
-        title: 'Nama Peserta Baru',
-        input: 'text',
+        title: 'Tambah Peserta',
+        html: `
+            <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
+                <button type="button" id="tabManual" class="btn-sm" style="background:var(--primary); border:none; color:white; padding:8px 15px; border-radius:5px;" onclick="window.switchSwalTab('manual')">Manual</button>
+                <button type="button" id="tabAuto" class="btn-sm" style="background:#334155; border:none; color:white; padding:8px 15px; border-radius:5px;" onclick="window.switchSwalTab('auto')">Otomatis (Paste)</button>
+            </div>
+            
+            <div id="viewManual">
+                <input id="swalName" class="swal2-input" placeholder="Nama Peserta">
+            </div>
+
+            <div id="viewAuto" style="display:none;">
+                <textarea id="swalPaste" class="swal2-textarea" placeholder="Tempel disini...&#10;Contoh:&#10;1. Andi&#10;2. Budi&#10;3. Citra" style="height:150px; font-size:0.9em;"></textarea>
+                <div style="font-size:0.8em; color:#94a3b8; text-align:left; margin-top:5px;">
+                    *Sistem akan otomatis mendeteksi format "Angka. Nama"
+                </div>
+            </div>
+        `,
         showCancelButton: true,
-        confirmButtonText: 'Tambah',
-        preConfirm: (name) => {
-            if (!name) Swal.showValidationMessage('Nama wajib diisi');
-            return name;
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        didOpen: () => {
+            // Focus Input
+            document.getElementById('swalName').focus();
+        },
+        preConfirm: () => {
+            const isManual = document.getElementById('viewManual').style.display !== 'none';
+            if (isManual) {
+                const name = document.getElementById('swalName').value;
+                if (!name) return Swal.showValidationMessage('Nama wajib diisi');
+                return { mode: 'manual', data: name };
+            } else {
+                const text = document.getElementById('swalPaste').value;
+                if (!text) return Swal.showValidationMessage('Teks tidak boleh kosong');
+                return { mode: 'auto', data: text };
+            }
         }
     }).then((res) => {
         if (res.isConfirmed) {
-            const newRef = push(ref(db, 'participants'));
-            set(newRef, {
-                id: newRef.key,
-                name: res.value,
-                createdAt: Date.now(),
-                scores: {},
-                locked: false
-            });
-            Swal.fire('Sukses', 'Peserta ditambahkan', 'success');
+            const { mode, data } = res.value;
+
+            if (mode === 'manual') {
+                pushRef(data);
+                Swal.fire('Sukses', 'Peserta ditambahkan', 'success');
+            } else {
+                // Parse Auto
+                // Strategy: Split by regex (\d+\.) to handle "1. Name 2. Name" inline or newline
+                const rawParts = data.split(/\d+\./);
+                const names = rawParts
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0) // Remove empty empty splits
+                    .filter(s => s.length < 100); // Sanity check length
+
+                if (names.length === 0) {
+                    Swal.fire('Gagal', 'Format tidak dikenali. Gunakan "1. Nama"', 'error');
+                } else {
+                    names.forEach(n => pushRef(n));
+                    Swal.fire('Sukses', `${names.length} Peserta berhasil ditambahkan!`, 'success');
+                }
+            }
         }
     });
+
+    function pushRef(name) {
+        const newRef = push(ref(db, 'participants'));
+        set(newRef, {
+            id: newRef.key,
+            name: name,
+            createdAt: Date.now(),
+            scores: {},
+            locked: false,
+            submitted: false
+        });
+    }
+};
+
+// Global helper for the Swal HTML
+window.switchSwalTab = (mode) => {
+    const manual = document.getElementById('viewManual');
+    const auto = document.getElementById('viewAuto');
+    const bM = document.getElementById('tabManual');
+    const bA = document.getElementById('tabAuto');
+
+    if (mode === 'manual') {
+        manual.style.display = 'block';
+        auto.style.display = 'none';
+        bM.style.background = 'var(--primary)';
+        bA.style.background = '#334155';
+        document.getElementById('swalName').focus();
+    } else {
+        manual.style.display = 'none';
+        auto.style.display = 'block';
+        bM.style.background = '#334155';
+        bA.style.background = 'var(--primary)';
+        document.getElementById('swalPaste').focus();
+    }
 };
 
 window.deleteParticipant = (id) => {
@@ -535,9 +625,15 @@ window.saveSettings = () => {
 
 // === ARCHIVE SYSTEM ===
 window.saveToArchive = () => {
+    // Basic verification
+    if (appState.user.role !== 'admin') {
+        Swal.fire('Akses Ditolak', 'Hanya admin yang boleh mengarsipkan.', 'error');
+        return;
+    }
+
     Swal.fire({
         title: 'Arsipkan Lomba Saat Ini?',
-        text: "Data saat ini akan disimpan ke folder Arsip.",
+        text: "Data saat ini akan disimpan ke folder Arsip (Aman di Firebase Cloud).",
         icon: 'info',
         showCancelButton: true,
         confirmButtonText: 'Ya, Arsipkan'
@@ -545,55 +641,81 @@ window.saveToArchive = () => {
         if (result.isConfirmed) {
             const timestamp = Date.now();
             const dateStr = new Date().toLocaleDateString('id-ID');
+            // Ensure data exists
+            const currentParts = appState.data.participants || {};
+            const currentConfig = appState.data.config || {};
+
+            if (Object.keys(currentParts).length === 0) {
+                Swal.fire('Info', 'Data peserta kosong, tidak ada yang perlu diarsipkan.', 'warning');
+                return;
+            }
+
             const archiveData = {
                 timestamp: timestamp,
                 dateDisplay: dateStr,
-                config: appState.data.config,
-                participants: appState.data.participants
+                config: currentConfig,
+                participants: currentParts,
+                archivedBy: appState.user.token
             };
 
             const newArchiveRef = push(ref(db, 'archives'));
-            set(newArchiveRef, archiveData).then(() => {
-                Swal.fire('Sukses', 'Data Lomba berhasil diamankan ke Arsip!', 'success');
-            });
+            console.log("Saving archive...", archiveData);
+
+            set(newArchiveRef, archiveData)
+                .then(() => {
+                    Swal.fire('Sukses', 'Data Lomba berhasil diamankan ke Arsip!', 'success');
+                })
+                .catch((err) => {
+                    console.error("Archive Error:", err);
+                    Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan: ' + err.message, 'error');
+                });
         }
     });
 };
 
 window.toggleArchiveView = () => {
     const section = document.getElementById('archiveSection');
-    const isHidden = section.style.display === 'none';
-    section.style.display = isHidden ? 'block' : 'none';
+    // Toggle Logic
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
 
-    if (isHidden) {
-        // Load Archives
+        // INIT LOAD
         const listEl = document.getElementById('archiveList');
-        listEl.innerHTML = '<p class="text-muted">Memuat data...</p>';
+        listEl.innerHTML = `
+            <div style="text-align:center; padding:10px;">
+                <i class="fas fa-spinner fa-spin"></i> Memuat Data Arsip...
+            </div>`;
 
+        // FETCH REALTIME
         onValue(ref(db, 'archives'), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) {
-                listEl.innerHTML = '<p class="text-muted">Belum ada arsip.</p>';
+            if (!snapshot.exists() || !snapshot.val()) {
+                listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8"><i class="fas fa-folder-open" style="font-size:2em; margin-bottom:10px;"></i><br>Belum ada data arsip.</div>';
                 return;
             }
 
+            const data = snapshot.val();
             let html = '<ul style="list-style:none; padding:0;">';
-            // Sort by latest
-            const sortedKeys = Object.keys(data).sort((a, b) => data[b].timestamp - data[a].timestamp);
+
+            // Sort by latest desc
+            const sortedKeys = Object.keys(data).sort((a, b) => {
+                const nav = data[a].timestamp || 0;
+                const nbv = data[b].timestamp || 0;
+                return nbv - nav;
+            });
 
             sortedKeys.forEach(key => {
                 const item = data[key];
                 const title = item.config?.title || "Tanpa Judul";
-                const date = item.dateDisplay || "-";
+                const date = item.dateDisplay || new Date(item.timestamp).toLocaleDateString();
                 const pCount = item.participants ? Object.keys(item.participants).length : 0;
 
                 html += `
-                    <li style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <li style="background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.05);">
                         <div>
-                            <div style="font-weight:bold; color:var(--primary)">${title}</div>
-                            <small class="text-muted">${date} • ${pCount} Peserta</small>
+                            <div style="font-weight:bold; color:var(--primary); font-size:1.05em;">${title}</div>
+                            <small class="text-muted"><i class="far fa-calendar"></i> ${date} • <i class="fas fa-users"></i> ${pCount} Peserta</small>
                         </div>
-                        <button onclick="window.loadArchive('${key}')" class="btn-sm" style="background:#475569; border:none; color:white;">
+                        <button onclick="window.loadArchive('${key}')" class="btn-sm" style="background:#475569; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; transition:0.2s">
                              <i class="fas fa-file-pdf"></i> PDF
                         </button>
                     </li>
@@ -601,9 +723,14 @@ window.toggleArchiveView = () => {
             });
             html += '</ul>';
             listEl.innerHTML = html;
-        }, { onlyOnce: true });
+        }); // Realtime listener (no onlyOnce)
+
+    } else {
+        section.style.display = 'none';
     }
 };
+
+
 
 window.loadArchive = (key) => {
     onValue(ref(db, `archives/${key}`), (snapshot) => {
@@ -778,3 +905,119 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('authSection').classList.remove('hidden');
     }
 });
+
+// === HOTFIXES OVERRIDES ===
+
+// FIXED: Add Participant Modal with Robust Parsing and UI
+window.openAddModal = () => {
+    // Override helper to ensure it works
+    window.switchSwalTab = (mode) => {
+        const manual = document.getElementById('viewManual');
+        const auto = document.getElementById('viewAuto');
+        const bM = document.getElementById('tabManual');
+        const bA = document.getElementById('tabAuto');
+
+        if (manual && auto && bM && bA) {
+            if (mode === 'manual') {
+                manual.style.display = 'block';
+                auto.style.display = 'none';
+                bM.style.background = '#0ea5e9';
+                bA.style.background = '#334155';
+                setTimeout(() => { const el = document.getElementById('swalName'); if (el) el.focus(); }, 50);
+            } else {
+                manual.style.display = 'none';
+                auto.style.display = 'block';
+                bM.style.background = '#334155';
+                bA.style.background = '#0ea5e9';
+                setTimeout(() => { const el = document.getElementById('swalPaste'); if (el) el.focus(); }, 50);
+            }
+        }
+    };
+
+    Swal.fire({
+        title: 'Tambah Peserta',
+        html: `
+            <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
+                <button type="button" id="tabManual" onclick="window.switchSwalTab('manual')"
+                        style="background:#0ea5e9; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
+                    Manual
+                </button>
+                <button type="button" id="tabAuto" onclick="window.switchSwalTab('auto')"
+                        style="background:#334155; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
+                    Otomatis (Paste)
+                </button>
+            </div>
+            
+            <div id="viewManual">
+                <input id="swalName" class="swal2-input" placeholder="Nama Peserta">
+            </div>
+
+            <div id="viewAuto" style="display:none;">
+                <textarea id="swalPaste" class="swal2-textarea" 
+                          placeholder="Paste disini...&#10;Contoh format:&#10;1. Andi&#10;2. Budi" 
+                          style="height:150px; font-size:0.9em; width:100%; box-sizing:border-box;"></textarea>
+                <div style="font-size:0.8em; color:#94a3b8; text-align:left; margin-top:5px;">
+                    *Salin daftar nama berformat angka dari Excel/Word lalu tempel disini.
+                    <br>Atau cukup satu nama per baris.
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        didOpen: () => {
+            window.switchSwalTab('manual');
+        },
+        preConfirm: () => {
+            const isManual = document.getElementById('viewManual').style.display !== 'none';
+            if (isManual) {
+                const name = document.getElementById('swalName').value;
+                if (!name) return Swal.showValidationMessage('Nama wajib diisi');
+                return { mode: 'manual', data: name };
+            } else {
+                const text = document.getElementById('swalPaste').value;
+                if (!text) return Swal.showValidationMessage('Teks tidak boleh kosong');
+                return { mode: 'auto', data: text };
+            }
+        }
+    }).then((res) => {
+        if (res.isConfirmed) {
+            const { mode, data } = res.value;
+
+            if (mode === 'manual') {
+                pushRef(data);
+                Swal.fire('Sukses', 'Peserta ditambahkan', 'success');
+            } else {
+                // Improved Parsing for Auto
+                let names = [];
+                // Basic strategy: split by newlines, clean up numbering
+                const lines = data.split('\n');
+                lines.forEach(line => {
+                    // Removes "1.", "1)", "1 " at start, and trims
+                    const clean = line.replace(/^\s*\d+[.)\t\s]+\s*/, '').trim();
+                    if (clean.length > 0 && clean.length < 100) names.push(clean);
+                });
+
+                if (names.length === 0) {
+                    Swal.fire('Gagal', 'Format tidak dikenali. Pastikan ada nama peserta.', 'error');
+                } else {
+                    names.forEach(n => pushRef(n));
+                    Swal.fire('Sukses', `${names.length} Peserta berhasil diimport!`, 'success');
+                }
+            }
+        }
+    });
+
+    function pushRef(name) {
+        if (!name) return;
+        const newRef = push(ref(db, 'participants'));
+        set(newRef, {
+            id: newRef.key,
+            name: name,
+            createdAt: Date.now(),
+            scores: {},
+            locked: false,
+            submitted: false
+        });
+    }
+};
