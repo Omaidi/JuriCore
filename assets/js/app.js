@@ -194,15 +194,36 @@ function startRealtimeSync() {
         const config = snapshot.val();
         if (config) {
             appState.data.config = config;
+
+            // Migration: Add Ranks if missing
+            if (!config.ranks) {
+                const defaultRanks = [
+                    { label: "JUARA 1", min: 91, max: 100 },
+                    { label: "JUARA 2", min: 81, max: 90 },
+                    { label: "JUARA 3", min: 71, max: 80 }
+                ];
+                // We don't want to trigger circular loops if possible, but update is safe
+                update(ref(db, 'config'), { ranks: defaultRanks });
+                config.ranks = defaultRanks;
+            }
+
             updateUIConfig(config);
             // Re-render participants if criteria changes
-            if (appState.data.participants) renderParticipants(appState.data.participants);
+            if (appState.data.participants) {
+                renderParticipants(appState.data.participants);
+                renderStandings(appState.data.participants);
+            }
         } else {
             set(ref(db, 'config'), {
                 title: "Lomba Baru 2026",
                 adminPass: "admin123",
                 judgeToken: "JURI" + Math.floor(Math.random() * 9999),
-                criteria: [{ name: "Umum", weight: 100 }]
+                criteria: [{ name: "Umum", weight: 100 }],
+                ranks: [
+                    { label: "JUARA 1", min: 91, max: 100 },
+                    { label: "JUARA 2", min: 81, max: 90 },
+                    { label: "JUARA 3", min: 71, max: 80 }
+                ]
             });
         }
     });
@@ -247,6 +268,26 @@ function updateUIConfig(config) {
     const fbEl = document.getElementById('totalPointsFeedback');
     let color = Math.abs(totalPoints - 100) < 0.1 ? '#10b981' : '#f59e0b';
     fbEl.innerHTML = `<span style="color: ${color}">Total Kuota Poin: ${totalPoints.toFixed(0)} (Ideal: 100)</span>`;
+
+    // Ranks List
+    const rList = document.getElementById('rankListConfig');
+    if (rList) {
+        rList.innerHTML = '';
+        (config.ranks || []).forEach((r, idx) => {
+            rList.innerHTML += `
+                <div class="criteria-input-group animate__animated animate__fadeIn" style="display:flex; gap:5px; margin-bottom:5px;">
+                    <input class="form-control" style="flex:2;" onchange="window.updateRank(${idx}, 'label', this.value)" value="${r.label}" placeholder="Nama Judul">
+                    <input class="form-control text-center" style="flex:1;" type="number" onchange="window.updateRank(${idx}, 'min', this.value)" value="${r.min}" placeholder="Min">
+                    <span style="align-self:center;">-</span>
+                    <input class="form-control text-center" style="flex:1;" type="number" onchange="window.updateRank(${idx}, 'max', this.value)" value="${r.max}" placeholder="Max">
+                    <button class="btn-sm btn-danger" onclick="window.deleteRank(${idx})"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+        });
+        if (!config.ranks || config.ranks.length === 0) {
+            rList.innerHTML = '<p class="text-muted text-sm text-center">Belum ada pengaturan juara.</p>';
+        }
+    }
 }
 
 
@@ -444,9 +485,23 @@ function renderParticipants(participantsMap) {
 }
 
 function getPredikat(score) {
-    if (score >= 91) return { label: "JUARA 1", class: "rank-1" };
-    if (score >= 81) return { label: "JUARA 2", class: "rank-2" };
-    if (score >= 71) return { label: "JUARA 3", class: "rank-3" };
+    const ranks = appState.data.config.ranks || [];
+    // Sort by min descending to match highest first
+    // or just find the one that fits
+    const match = ranks.find(r => score >= parseFloat(r.min) && score <= parseFloat(r.max));
+
+    if (match) {
+        // Determine class based on label content usually, or just generic
+        let cls = "rank-none";
+        const l = match.label.toLowerCase();
+        if (l.includes("1")) cls = "rank-1";
+        else if (l.includes("2")) cls = "rank-2";
+        else if (l.includes("3")) cls = "rank-3";
+        else cls = "rank-2"; // default color
+
+        return { label: match.label, class: cls };
+    }
+
     return { label: "TIDAK JUARA", class: "rank-none" };
 }
 
@@ -1066,6 +1121,24 @@ window.autoDistribute = () => {
     });
     update(ref(db, 'config'), { criteria: updated });
     Swal.fire('Sukses', `Reset ke ${count} kriteria (Total 100)`, 'success');
+};
+
+window.addRank = () => {
+    const current = appState.data.config.ranks || [];
+    const updated = [...current, { label: "Juara Baru", min: 0, max: 0 }];
+    update(ref(db, 'config'), { ranks: updated });
+};
+
+window.updateRank = (idx, field, val) => {
+    const current = appState.data.config.ranks || [];
+    current[idx][field] = val;
+    update(ref(db, 'config'), { ranks: current });
+};
+
+window.deleteRank = (idx) => {
+    const current = appState.data.config.ranks || [];
+    current.splice(idx, 1);
+    update(ref(db, 'config'), { ranks: current });
 };
 
 window.copyToken = () => {
