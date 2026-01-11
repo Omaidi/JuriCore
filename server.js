@@ -17,11 +17,15 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-    console.log(`REQ: ${req.url}`);
+    // Parse URL to remove query strings (fixes ?v=2.4 404 error)
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = requestUrl.pathname;
+
+    console.log(`REQ: ${pathname} (original: ${req.url})`);
 
     // Normalize path to www directory
-    let filePath = './www' + req.url;
-    if (filePath === './www/') {
+    let filePath = './www' + pathname;
+    if (filePath === './www/' || filePath === './www') {
         filePath = './www/index.html';
     }
 
@@ -40,7 +44,12 @@ const server = http.createServer((req, res) => {
                 res.end('Sorry, check with the site admin for error: ' + error.code + ' ..\n');
             }
         } else {
-            res.writeHead(200, { 'Content-Type': contentType });
+            res.writeHead(200, {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            });
             res.end(content, 'utf-8');
         }
     });
