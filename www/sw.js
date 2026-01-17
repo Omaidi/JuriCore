@@ -1,4 +1,4 @@
-const CACHE_NAME = 'juri-pro-v1';
+const CACHE_NAME = 'juri-pro-v2.5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

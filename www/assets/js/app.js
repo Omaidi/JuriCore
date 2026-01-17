@@ -108,6 +108,27 @@ window.toggleSidebar = () => {
     document.querySelector('.sidebar').classList.toggle('open');
 };
 
+window.goToScoring = (id) => {
+    window.navTo('scoring');
+    setTimeout(() => {
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Visual Highlight
+            const originalTrans = card.style.transition;
+            card.style.transition = 'all 0.5s ease';
+            card.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.6)';
+            card.style.transform = 'scale(1.02)';
+
+            setTimeout(() => {
+                card.style.boxShadow = '';
+                card.style.transform = 'scale(1)';
+                card.style.transition = originalTrans;
+            }, 1500);
+        }
+    }, 100); // Small delay to allow tab switch rendering
+};
+
 // === CORE LOGIC ===
 function showLoading() { document.getElementById('loadingOverlay').style.opacity = '1'; document.getElementById('loadingOverlay').classList.remove('hidden'); }
 function hideLoading() {
@@ -357,7 +378,12 @@ function renderParticipants(participantsMap) {
             if (appState.user.role === 'admin') {
                 actionContainer.innerHTML = `
                     <button class="btn-icon text-danger" onclick="window.deleteParticipant('${id}')"><i class="fas fa-trash"></i> Hapus</button>
-                    ${isPermLocked ? '<span class="badge bg-danger">FINAL</span>' : (isSubmitted ? '<span class="badge bg-success">SIAP</span>' : '<span class="badge bg-secondary">DRAFT</span>')}
+                    ${isPermLocked
+                        ? `<button onclick="window.unlockParticipant('${id}')" class="btn-icon text-warning" title="Buka Kunci"><i class="fas fa-lock-open"></i></button> <span class="badge bg-danger">FINAL</span>`
+                        : (isSubmitted
+                            ? `<button onclick="window.unlockParticipant('${id}')" class="btn-icon text-warning" title="Buka Akses/Edit"><i class="fas fa-lock-open"></i></button> <span class="badge bg-success">SIAP</span>`
+                            : '<span class="badge bg-secondary">DRAFT</span>')
+                    }
                 `;
             } else {
                 // JUDGE VIEW
@@ -407,7 +433,8 @@ function renderParticipants(participantsMap) {
         // Determine Input Lock State (Perm Locked or Soft Submitted)
         // ADMIN Should NOT be able to edit scores.
         const isAdmin = appState.user.role === 'admin';
-        const disableInputs = isPermLocked || isSubmitted || isAdmin;
+        // ADMIN NOW ALLOWED TO EDIT (Updated for hotfix)
+        const disableInputs = isPermLocked || isSubmitted;
 
         // Ensure inputs match criteria length
         let existingInputs = inputsContainer.querySelectorAll('input');
@@ -476,6 +503,7 @@ function renderParticipants(participantsMap) {
                 </div>
                 <div>
                      <!-- Lock indicator logic -->
+                    ${p.locked ? `<button onclick="window.unlockParticipant('${id}')" class="text-warning mr-2" title="Buka"><i class="fas fa-lock-open"></i></button>` : ''}
                     <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
                     <button onclick="window.deleteParticipant('${id}')" class="text-danger"><i class="fas fa-trash"></i></button>
                 </div>
@@ -507,7 +535,11 @@ function getPredikat(score) {
 
 function renderStandings(participantsMap) {
     const tbody = document.getElementById('standingsTable');
-    tbody.innerHTML = '';
+    if (!tbody) return;
+
+    const thead = tbody.closest('table').querySelector('thead tr');
+
+    // Clean and Calc
     const arr = Object.values(participantsMap).map(p => ({
         ...p,
         finalScore: Math.round(parseFloat(calculateTotal(p.scores, appState.data.config.criteria)))
@@ -516,14 +548,47 @@ function renderStandings(participantsMap) {
     // Sort by Score Descending
     arr.sort((a, b) => b.finalScore - a.finalScore);
 
+    // ADMIN CHECK for Dynamic Columns
+    const isAdmin = appState.user && appState.user.role === 'admin';
+
+    if (thead) {
+        if (isAdmin) {
+            thead.innerHTML = `
+                <th>Nama Peserta</th>
+                <th class="text-center">Total Skor</th>
+                <th class="text-center">Rank / Predikat</th>
+                <th class="text-right">Aksi</th>
+            `;
+        } else {
+            thead.innerHTML = `
+                <th>Nama Peserta</th>
+                <th class="text-center">Total Skor</th>
+                <th class="text-right">Rank / Predikat</th>
+            `;
+        }
+    }
+
+    tbody.innerHTML = '';
     arr.forEach((p, idx) => {
         const predikat = getPredikat(p.finalScore);
+
+        let actionCell = '';
+        if (isAdmin) {
+            actionCell = `
+                <td class="text-right">
+                    <button onclick="window.goToScoring('${p.id}')" class="btn-sm" style="background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:5px;">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                </td>
+            `;
+        }
 
         tbody.innerHTML += `
             <tr class="animate__animated animate__fadeIn">
                 <td style="font-weight:600">${p.name}</td>
                 <td class="text-center font-bold text-lg">${p.finalScore}</td>
-                <td class="${predikat.class} text-right" style="font-weight:bold; font-size: 1.1em">${predikat.label}</td>
+                <td class="${predikat.class} ${isAdmin ? 'text-center' : 'text-right'}" style="font-weight:bold; font-size: 1.1em">${predikat.label}</td>
+                ${actionCell}
             </tr>
         `;
     });
@@ -792,6 +857,22 @@ window.deleteParticipant = (id) => {
     }).then((r) => {
         if (r.isConfirmed) {
             remove(ref(db, `participants/${id}`));
+        }
+    });
+};
+
+window.unlockParticipant = (id) => {
+    Swal.fire({
+        title: 'Buka Kunci Nilai?',
+        text: "Peserta ini akan bisa diedit kembali.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Ya, Buka Kunci'
+    }).then((r) => {
+        if (r.isConfirmed) {
+            update(ref(db, `participants/${id}`), { locked: false, submitted: false })
+                .then(() => Swal.fire({ toast: true, icon: 'success', title: 'Akses dibuka', timer: 1500, showConfirmButton: false }));
         }
     });
 };
