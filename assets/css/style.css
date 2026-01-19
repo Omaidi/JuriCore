@@ -429,11 +429,17 @@ input[type=number] {
     border-collapse: collapse;
 }
 
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .premium-table th {
     text-align: left;
     padding: 1rem;
     color: var(--text-muted);
     border-bottom: 1px solid var(--glass-border);
+    white-space: nowrap;
 }
 
 .premium-table td {

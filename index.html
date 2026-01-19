@@ -180,133 +180,172 @@
                 </div>
 
                 <div class="leaderboard-card">
-                    <table class="premium-table">
-                        <thead>
-                            <tr>
-                                <th>Nama Peserta</th>
-                                <th class="text-center">Total Skor</th>
-                                <th class="text-right">Rank / Predikat</th>
-                            </tr>
-                        </thead>
-                        <tbody id="standingsTable">
-                            <!-- Rows -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="page-participants" class="page-view hidden animate__animated animate__fadeIn">
-                <div class="page-header">
-                    <h2>Data Peserta</h2>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn-primary" style="background:#ef4444;"
-                            onclick="window.deleteAllParticipants()">
-                            <i class="fas fa-trash-alt"></i> Hapus Semua
-                        </button>
-                        <button class="btn-primary" onclick="window.openAddModal()">
-                            <i class="fas fa-plus"></i> Tambah Peserta
-                        </button>
+                    <div class="table-responsive">
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>Nama Peserta</th>
+                                    <th class="text-center">Total Skor</th>
+                                    <th class="text-right">Rank / Predikat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standingsTable">
+                                <!-- Rows -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div class="card-list" id="participantListAdmin">
-                    <!-- Admin Management List -->
-                </div>
-            </div>
-
-            <div id="page-settings" class="page-view hidden animate__animated animate__fadeIn">
-                <div class="page-header">
-                    <h2>Pengaturan Kompetisi</h2>
-                </div>
-
-                <div class="settings-grid">
-                    <div class="glass-panel">
-                        <h3><i class="fas fa-pen"></i> Info Lomba</h3>
-                        <div class="form-group">
-                            <label>Nama Lomba</label>
-                            <input type="text" id="confTitle" class="form-control" onchange="window.saveSettings()">
-                        </div>
-                    </div>
-
-                    <div class="glass-panel">
-                        <h3><i class="fas fa-tasks"></i> Kriteria Penilaian</h3>
-                        <div id="criteriaListConfig"></div>
-                        <div id="totalPointsFeedback" class="text-right text-sm mt-2 mb-2 font-bold"></div>
-                        <div class="d-flex" style="display:flex; gap:10px; margin-top:10px;">
-                            <button class="btn-outline" style="flex:1" onclick="window.addCriteria()">+ Tambah</button>
-                            <button class="btn-outline"
-                                style="flex:1; border-color:var(--primary); color:var(--primary)"
-                                onclick="window.autoDistribute()">
-                                <i class="fas fa-magic"></i> Auto 100 Poin
+                <div id="page-participants" class="page-view hidden animate__animated animate__fadeIn">
+                    <div class="page-header">
+                        <h2>Data Peserta</h2>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-primary" style="background:#ef4444;"
+                                onclick="window.deleteAllParticipants()">
+                                <i class="fas fa-trash-alt"></i> Hapus Semua
+                            </button>
+                            <button class="btn-primary" onclick="window.openAddModal()">
+                                <i class="fas fa-plus"></i> Tambah Peserta
                             </button>
                         </div>
                     </div>
 
-                    <div class="glass-panel">
-                        <h3><i class="fas fa-trophy"></i> Pengaturan Juara</h3>
-                        <p class="text-muted" style="font-size:0.9em; margin-bottom:10px;">Atur rentang nilai untuk
-                            predikat juara.</p>
-                        <div id="rankListConfig"></div>
-                        <button class="btn-outline" style="width:100%; margin-top:10px;" onclick="window.addRank()">+
-                            Tambah Predikat</button>
+                    <div class="card-list" id="participantListAdmin">
+                        <!-- Admin Management List -->
+                    </div>
+                </div>
+
+                <div id="page-settings" class="page-view hidden animate__animated animate__fadeIn">
+                    <div class="page-header">
+                        <h2>Pengaturan Kompetisi</h2>
                     </div>
 
-                    <div class="glass-panel">
-                        <h3><i class="fas fa-key"></i> Akses Juri & Arsip</h3>
-                        <div class="form-group mb-3">
-                            <label>Token Login Juri</label>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" id="confJudgeToken" class="form-control" placeholder="JURI123"
-                                    onchange="window.saveSettings()">
-                                <button class="btn-secondary" onclick="window.saveSettings()"><i
-                                        class="fas fa-save"></i></button>
+                    <div class="settings-grid">
+                        <div class="glass-panel">
+                            <h3><i class="fas fa-pen"></i> Info Lomba</h3>
+                            <div class="form-group">
+                                <label>Nama Lomba</label>
+                                <input type="text" id="confTitle" class="form-control" onchange="window.saveSettings()">
                             </div>
                         </div>
-                        <p class="hint">Token ini digunakan Juri untuk login.</p>
 
-                        <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+                        <div class="glass-panel">
+                            <h3><i class="fas fa-tasks"></i> Kriteria Penilaian</h3>
+                            <div id="criteriaListConfig"></div>
+                            <div id="totalPointsFeedback" class="text-right text-sm mt-2 mb-2 font-bold"></div>
+                            <div class="d-flex" style="display:flex; gap:10px; margin-top:10px;">
+                                <button class="btn-outline" style="flex:1" onclick="window.addCriteria()">+
+                                    Tambah</button>
+                                <button class="btn-outline"
+                                    style="flex:1; border-color:var(--primary); color:var(--primary)"
+                                    onclick="window.autoDistribute()">
+                                    <i class="fas fa-magic"></i> Auto 100 Poin
+                                </button>
+                            </div>
+                        </div>
 
-                        <button onclick="window.saveToArchive()" class="btn-outline"
-                            style="width:100%; color:#facc15; border-color:#facc15;">
-                            <i class="fas fa-archive"></i> Simpan ke Arsip Lomba
-                        </button>
-                        <button id="btnOpenArchive" onclick="window.toggleArchiveView()" class="btn-outline"
-                            style="width:100%; margin-top:10px; color:#64748b; border-color:#64748b;">
-                            <i class="fas fa-folder-open"></i> Buka Arsip Lama
-                        </button>
-                    </div>
+                        <div class="glass-panel">
+                            <h3><i class="fas fa-trophy"></i> Pengaturan Juara</h3>
+                            <p class="text-muted" style="font-size:0.9em; margin-bottom:10px;">Atur rentang nilai untuk
+                                predikat juara.</p>
+                            <div id="rankListConfig"></div>
+                            <button class="btn-outline" style="width:100%; margin-top:10px;"
+                                onclick="window.addRank()">+
+                                Tambah Predikat</button>
+                        </div>
 
-                    <!-- ARCHIVE VIEWER (Initially Hidden) -->
-                    <div id="archiveSection" class="glass-panel" style="grid-column: 1 / -1; display:none;">
-                        <h3><i class="fas fa-history"></i> Riwayat Lomba (Arsip)</h3>
-                        <div id="archiveList" style="max-height: 300px; overflow-y: auto;">
-                            <!-- Archives -->
-                            <p class="text-muted">Loading...</p>
+                        <div class="glass-panel">
+                            <h3><i class="fas fa-key"></i> Akses Juri & Arsip</h3>
+                            <div class="form-group mb-3">
+                                <label>Token Login Juri</label>
+                                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                                    <input type="text" id="confJudgeToken" class="form-control" placeholder="JURI123"
+                                        onchange="window.saveSettings()" style="flex:1; min-width:120px;">
+                                    <button class="btn-secondary" onclick="window.saveSettings()"
+                                        title="Simpan Token Manual"><i class="fas fa-save"></i></button>
+                                    <button class="btn-outline" onclick="window.resetJudgeToken()"
+                                        style="color:#ef4444; border-color:#ef4444"
+                                        title="Ganti Token & Logout Semua Juri Otomatis">
+                                        <i class="fas fa-sync-alt"></i> Reset
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="hint">Token ini digunakan Juri untuk login.</p>
+
+                            <hr style="border-color:rgba(255,255,255,0.1); margin: 20px 0;">
+
+                            <button onclick="window.saveToArchive()" class="btn-outline"
+                                style="width:100%; color:#facc15; border-color:#facc15;">
+                                <i class="fas fa-archive"></i> Simpan ke Arsip Lomba
+                            </button>
+                            <button id="btnOpenArchive" onclick="window.toggleArchiveView()" class="btn-outline"
+                                style="width:100%; margin-top:10px; color:#64748b; border-color:#64748b;">
+                                <i class="fas fa-folder-open"></i> Buka Arsip Lama
+                            </button>
+                        </div>
+
+                        <!-- ARCHIVE VIEWER (Initially Hidden) -->
+                        <div id="archiveSection" class="glass-panel" style="grid-column: 1 / -1; display:none;">
+                            <h3><i class="fas fa-history"></i> Riwayat Lomba (Arsip)</h3>
+                            <div id="archiveList" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Archives -->
+                                <p class="text-muted">Loading...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
         </main>
     </section>
 
     <!-- MODULE ENTRY POINT -->
     <!-- MODULE ENTRY POINT -->
-    <script type="module" src="assets/js/app.js?v=2.4"></script>
+    <script type="module" src="assets/js/app.js?v=2.5"></script>
 
     <!-- PWA Service Worker Registration -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+        // === AUTO CACHE CLEARING SYSTEM ===
+        const CURRENT_VERSION = '2.5';
+
+        window.addEventListener('load', async () => {
+            const storedVersion = localStorage.getItem('app_version');
+
+            if (storedVersion !== CURRENT_VERSION) {
+                console.log(`Version mismatch (Old: ${storedVersion}, New: ${CURRENT_VERSION}). Clearing cache...`);
+
+                // 1. Unregister Service Workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                    }
+                }
+
+                // 2. Delete Cache Storage
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    for (let key of keys) {
+                        await caches.delete(key);
+                    }
+                }
+
+                // 3. Update Version & Reload
+                localStorage.setItem('app_version', CURRENT_VERSION);
+                window.location.reload(true);
+                return;
+            }
+
+            // Normal SW Registration
+            if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js')
                     .then(registration => {
                         console.log('SW Registered:', registration);
+                        registration.update(); // Check for updates immediately
                     })
                     .catch(error => {
                         console.log('SW Registration Failed:', error);
                     });
-            });
-        }
+            }
+        });
     </script>
 
 </body>
