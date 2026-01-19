@@ -378,6 +378,9 @@ function updateUIConfig(config) {
 // INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
 // INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
 function renderParticipants(participantsMap) {
+    // Safety Fallback
+    if (!participantsMap) participantsMap = {};
+
     const grid = document.getElementById('scoringContainer');
 
     // Sort participants
@@ -604,6 +607,9 @@ function getPredikat(score) {
 }
 
 function renderStandings(participantsMap) {
+    // Safety Fallback
+    if (!participantsMap) participantsMap = {};
+
     const tbody = document.getElementById('standingsTable');
     if (!tbody) return;
 
@@ -816,13 +822,53 @@ window.editParticipantName = (id, currentName) => {
     });
 };
 
+window.switchSwalTab = (mode) => {
+    // defined for global access if needed, but we will also bind locally
+    const manual = document.getElementById('viewManual');
+    const auto = document.getElementById('viewAuto');
+    const bM = document.getElementById('tabManual');
+    const bA = document.getElementById('tabAuto');
+
+    if (!manual || !auto || !bM || !bA) {
+        console.error("SwitchTab Error: One or more elements not found in DOM");
+        return;
+    }
+
+    if (mode === 'manual') {
+        manual.style.display = 'block';
+        auto.style.display = 'none';
+        bM.style.background = '#0ea5e9';
+        bA.style.background = '#334155';
+        setTimeout(() => { const el = document.getElementById('swalName'); if (el) el.focus(); }, 100);
+    } else {
+        manual.style.display = 'none';
+        auto.style.display = 'block';
+        bM.style.background = '#334155';
+        bA.style.background = '#0ea5e9';
+        setTimeout(() => { const el = document.getElementById('swalPaste'); if (el) el.focus(); }, 100);
+    }
+};
+
 window.openAddModal = () => {
+    if (!db) {
+        Swal.fire('Error', 'Database belum terhubung. Refresh halaman.', 'error');
+        return;
+    }
+
+    console.log("Opening Add Modal...");
+
     Swal.fire({
         title: 'Tambah Peserta',
         html: `
             <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
-                <button type="button" id="tabManual" class="btn-sm" style="background:var(--primary); border:none; color:white; padding:8px 15px; border-radius:5px;" onclick="window.switchSwalTab('manual')">Manual</button>
-                <button type="button" id="tabAuto" class="btn-sm" style="background:#334155; border:none; color:white; padding:8px 15px; border-radius:5px;" onclick="window.switchSwalTab('auto')">Otomatis (Paste)</button>
+                <button type="button" id="tabManual" 
+                        style="background:#0ea5e9; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
+                    Manual
+                </button>
+                <button type="button" id="tabAuto" 
+                        style="background:#334155; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
+                    Otomatis (Paste)
+                </button>
             </div>
             
             <div id="viewManual">
@@ -830,9 +876,12 @@ window.openAddModal = () => {
             </div>
 
             <div id="viewAuto" style="display:none;">
-                <textarea id="swalPaste" class="swal2-textarea" placeholder="Tempel disini...&#10;Contoh:&#10;1. Andi&#10;2. Budi&#10;3. Citra" style="height:150px; font-size:0.9em;"></textarea>
+                <textarea id="swalPaste" class="swal2-textarea" 
+                          placeholder="Paste disini...&#10;Contoh format:&#10;1. Andi&#10;2. Budi" 
+                          style="height:150px; font-size:0.9em; width:100%; box-sizing:border-box;"></textarea>
                 <div style="font-size:0.8em; color:#94a3b8; text-align:left; margin-top:5px;">
-                    *Sistem akan otomatis mendeteksi format "Angka. Nama"
+                    *Salin daftar nama berformat angka dari Excel/Word lalu tempel disini.
+                    <br>Atau cukup satu nama per baris.
                 </div>
             </div>
         `,
@@ -840,11 +889,17 @@ window.openAddModal = () => {
         confirmButtonText: 'Simpan',
         cancelButtonText: 'Batal',
         didOpen: () => {
-            // Focus Input
-            document.getElementById('swalName').focus();
+            // Bind events safely after DOM is ready
+            document.getElementById('tabManual')?.addEventListener('click', () => window.switchSwalTab('manual'));
+            document.getElementById('tabAuto')?.addEventListener('click', () => window.switchSwalTab('auto'));
+
+            // Init state
+            window.switchSwalTab('manual');
         },
         preConfirm: () => {
-            const isManual = document.getElementById('viewManual').style.display !== 'none';
+            const manualView = document.getElementById('viewManual');
+            const isManual = manualView && manualView.style.display !== 'none';
+
             if (isManual) {
                 const name = document.getElementById('swalName').value;
                 if (!name) return Swal.showValidationMessage('Nama wajib diisi');
@@ -858,61 +913,55 @@ window.openAddModal = () => {
     }).then((res) => {
         if (res.isConfirmed) {
             const { mode, data } = res.value;
+            console.log("Processing Data:", mode, data);
 
             if (mode === 'manual') {
                 pushRef(data);
-                Swal.fire('Sukses', 'Peserta ditambahkan', 'success');
+                Swal.fire({ toast: true, icon: 'success', title: 'Berhasil ditambahkan', position: 'top-end', timer: 2000, showConfirmButton: false });
             } else {
-                // Parse Auto
-                // Strategy: Split by regex (\d+\.) to handle "1. Name 2. Name" inline or newline
-                const rawParts = data.split(/\d+\./);
-                const names = rawParts
-                    .map(s => s.trim())
-                    .filter(s => s.length > 0) // Remove empty empty splits
-                    .filter(s => s.length < 100); // Sanity check length
+                // Improved Parsing
+                let names = [];
+                const lines = data.split('\n');
+                lines.forEach(line => {
+                    // Regex cleans "1. ", "1) ", "1.  " etc
+                    const clean = line.replace(/^\s*\d+[\.\)\s]+\s*/, '').trim();
+                    if (clean.length > 0) names.push(clean);
+                });
 
                 if (names.length === 0) {
-                    Swal.fire('Gagal', 'Format tidak dikenali. Gunakan "1. Nama"', 'error');
+                    Swal.fire('Gagal', 'Tidak ada nama yang terdeteksi valid.', 'error');
                 } else {
                     names.forEach(n => pushRef(n));
-                    Swal.fire('Sukses', `${names.length} Peserta berhasil ditambahkan!`, 'success');
+                    Swal.fire({
+                        title: 'Sukses!',
+                        text: `${names.length} Peserta berhasil ditambahkan.`,
+                        icon: 'success'
+                    });
                 }
             }
         }
+    }).catch(error => {
+        console.error("Add Modal Error:", error);
+        Swal.fire('Error System', 'Terjadi kesalahan: ' + error.message, 'error');
     });
 
     function pushRef(name) {
-        const newRef = push(ref(db, 'participants'));
-        set(newRef, {
-            id: newRef.key,
-            name: name,
-            createdAt: Date.now(),
-            scores: {},
-            locked: false,
-            submitted: false
-        });
-    }
-};
-
-// Global helper for the Swal HTML
-window.switchSwalTab = (mode) => {
-    const manual = document.getElementById('viewManual');
-    const auto = document.getElementById('viewAuto');
-    const bM = document.getElementById('tabManual');
-    const bA = document.getElementById('tabAuto');
-
-    if (mode === 'manual') {
-        manual.style.display = 'block';
-        auto.style.display = 'none';
-        bM.style.background = 'var(--primary)';
-        bA.style.background = '#334155';
-        document.getElementById('swalName').focus();
-    } else {
-        manual.style.display = 'none';
-        auto.style.display = 'block';
-        bM.style.background = '#334155';
-        bA.style.background = 'var(--primary)';
-        document.getElementById('swalPaste').focus();
+        try {
+            if (!name) return;
+            // Use global 'db' variable
+            const newRef = push(ref(db, 'participants'));
+            set(newRef, {
+                id: newRef.key,
+                name: name,
+                createdAt: Date.now(),
+                scores: {},
+                locked: false,
+                submitted: false
+            });
+        } catch (e) {
+            console.error("Firebase Push Error:", e);
+            throw e; // Rethrow to be caught by Swal catch
+        }
     }
 };
 
@@ -1381,118 +1430,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// === HOTFIXES OVERRIDES ===
 
-// FIXED: Add Participant Modal with Robust Parsing and UI
-window.openAddModal = () => {
-    // Override helper to ensure it works
-    window.switchSwalTab = (mode) => {
-        const manual = document.getElementById('viewManual');
-        const auto = document.getElementById('viewAuto');
-        const bM = document.getElementById('tabManual');
-        const bA = document.getElementById('tabAuto');
-
-        if (manual && auto && bM && bA) {
-            if (mode === 'manual') {
-                manual.style.display = 'block';
-                auto.style.display = 'none';
-                bM.style.background = '#0ea5e9';
-                bA.style.background = '#334155';
-                setTimeout(() => { const el = document.getElementById('swalName'); if (el) el.focus(); }, 50);
-            } else {
-                manual.style.display = 'none';
-                auto.style.display = 'block';
-                bM.style.background = '#334155';
-                bA.style.background = '#0ea5e9';
-                setTimeout(() => { const el = document.getElementById('swalPaste'); if (el) el.focus(); }, 50);
-            }
-        }
-    };
-
-    Swal.fire({
-        title: 'Tambah Peserta',
-        html: `
-            <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
-                <button type="button" id="tabManual" onclick="window.switchSwalTab('manual')"
-                        style="background:#0ea5e9; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
-                    Manual
-                </button>
-                <button type="button" id="tabAuto" onclick="window.switchSwalTab('auto')"
-                        style="background:#334155; border:none; color:white; padding:8px 15px; border-radius:5px; cursor:pointer;">
-                    Otomatis (Paste)
-                </button>
-            </div>
-            
-            <div id="viewManual">
-                <input id="swalName" class="swal2-input" placeholder="Nama Peserta">
-            </div>
-
-            <div id="viewAuto" style="display:none;">
-                <textarea id="swalPaste" class="swal2-textarea" 
-                          placeholder="Paste disini...&#10;Contoh format:&#10;1. Andi&#10;2. Budi" 
-                          style="height:150px; font-size:0.9em; width:100%; box-sizing:border-box;"></textarea>
-                <div style="font-size:0.8em; color:#94a3b8; text-align:left; margin-top:5px;">
-                    *Salin daftar nama berformat angka dari Excel/Word lalu tempel disini.
-                    <br>Atau cukup satu nama per baris.
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Simpan',
-        cancelButtonText: 'Batal',
-        didOpen: () => {
-            window.switchSwalTab('manual');
-        },
-        preConfirm: () => {
-            const isManual = document.getElementById('viewManual').style.display !== 'none';
-            if (isManual) {
-                const name = document.getElementById('swalName').value;
-                if (!name) return Swal.showValidationMessage('Nama wajib diisi');
-                return { mode: 'manual', data: name };
-            } else {
-                const text = document.getElementById('swalPaste').value;
-                if (!text) return Swal.showValidationMessage('Teks tidak boleh kosong');
-                return { mode: 'auto', data: text };
-            }
-        }
-    }).then((res) => {
-        if (res.isConfirmed) {
-            const { mode, data } = res.value;
-
-            if (mode === 'manual') {
-                pushRef(data);
-                Swal.fire('Sukses', 'Peserta ditambahkan', 'success');
-            } else {
-                // Improved Parsing for Auto
-                let names = [];
-                // Basic strategy: split by newlines, clean up numbering
-                const lines = data.split('\n');
-                lines.forEach(line => {
-                    // Removes "1.", "1)", "1 " at start, and trims
-                    const clean = line.replace(/^\s*\d+[.)\t\s]+\s*/, '').trim();
-                    if (clean.length > 0 && clean.length < 100) names.push(clean);
-                });
-
-                if (names.length === 0) {
-                    Swal.fire('Gagal', 'Format tidak dikenali. Pastikan ada nama peserta.', 'error');
-                } else {
-                    names.forEach(n => pushRef(n));
-                    Swal.fire('Sukses', `${names.length} Peserta berhasil diimport!`, 'success');
-                }
-            }
-        }
-    });
-
-    function pushRef(name) {
-        if (!name) return;
-        const newRef = push(ref(db, 'participants'));
-        set(newRef, {
-            id: newRef.key,
-            name: name,
-            createdAt: Date.now(),
-            scores: {},
-            locked: false,
-            submitted: false
-        });
-    }
-};
