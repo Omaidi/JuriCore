@@ -69,7 +69,11 @@ window.attemptLogin = async (role) => {
         }
 
         if (success) {
-            const session = { role, token: role === 'admin' ? 'ADMIN' : dbJudgeToken };
+            const session = {
+                role,
+                token: role === 'admin' ? 'ADMIN' : dbJudgeToken,
+                loginTime: Date.now()
+            };
             localStorage.setItem('juri_session', JSON.stringify(session));
             initSession(session);
         } else {
@@ -139,6 +143,42 @@ function hideLoading() {
 }
 
 function initSession(session) {
+    // === AUTO LOGOUT 5 JAM (KHUSUS JURI) ===
+    if (session.role !== 'admin') {
+        const FIVE_HOURS = 5 * 60 * 60 * 1000; // 5 Jam
+        const now = Date.now();
+
+        // Cek kadaluarsa: Tidak ada timestamp (sesi lama) atau > 5 jam
+        if (!session.loginTime || (now - session.loginTime > FIVE_HOURS)) {
+            localStorage.removeItem('juri_session');
+            Swal.fire({
+                title: 'Sesi Berakhir',
+                text: 'Akses 5 jam anda telah habis. Silakan login kembali.',
+                icon: 'warning',
+                confirmButtonText: 'OK',
+                allowOutsideClick: false
+            }).then(() => {
+                window.location.reload();
+            });
+            return;
+        }
+
+        // Interval cek setiap 1 menit tanpa refresh
+        setInterval(() => {
+            const s = JSON.parse(localStorage.getItem('juri_session'));
+            if (s && (Date.now() - s.loginTime > FIVE_HOURS)) {
+                localStorage.removeItem('juri_session');
+                Swal.fire({
+                    title: 'Waktu Habis',
+                    text: 'Sesi 5 jam anda telah berakhir.',
+                    icon: 'warning',
+                    confirmButtonText: 'OK',
+                    allowOutsideClick: false
+                }).then(() => window.location.reload());
+            }
+        }, 60000);
+    }
+
     appState.user = session;
     document.getElementById('authSection').classList.add('hidden');
     document.getElementById('appSection').classList.remove('hidden');
@@ -215,6 +255,29 @@ function startRealtimeSync() {
         const config = snapshot.val();
         if (config) {
             appState.data.config = config;
+
+            // === SECURITY FORCE LOGOUT ===
+            // Jika Admin mengganti token, maka sesi juri yang lama (token beda) harus logout.
+            if (appState.user && appState.user.role !== 'admin') {
+                // Pastikan token di sesi sama dengan token di DB
+                if (config.judgeToken && appState.user.token !== config.judgeToken) {
+                    // Prevent infinite loop or multi-firing
+                    if (!window.isLoggingOut) {
+                        window.isLoggingOut = true;
+                        Swal.fire({
+                            title: 'Sesi Berakhir',
+                            text: 'Token/Password Juri telah diperbarui oleh Admin. Silakan login dengan token baru.',
+                            icon: 'error',
+                            allowOutsideClick: false,
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            localStorage.removeItem('juri_session');
+                            window.location.reload();
+                        });
+                    }
+                    return;
+                }
+            }
 
             // Migration: Add Ranks if missing
             if (!config.ranks) {
@@ -890,6 +953,25 @@ window.saveSettings = () => {
 
     update(ref(db, 'config'), updates).then(() => {
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Tersimpan!', timer: 1000, showConfirmButton: false });
+    });
+};
+
+window.resetJudgeToken = () => {
+    Swal.fire({
+        title: 'Reset Token Juri?',
+        text: "Aksi ini akan LOGOUT SEMUA JURI yang sedang aktif. Mereka harus login ulang dengan token baru.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Ya, Reset & Logout Semua'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const newToken = "JURI" + Math.floor(1000 + Math.random() * 9000); // 4 Digit Random
+            document.getElementById('confJudgeToken').value = newToken;
+            update(ref(db, 'config'), { judgeToken: newToken }).then(() => {
+                Swal.fire('Sukses', `Token baru: ${newToken}. Semua juri lama telah dilogout.`, 'success');
+            });
+        }
     });
 };
 

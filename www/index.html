@@ -257,11 +257,16 @@
                             <h3><i class="fas fa-key"></i> Akses Juri & Arsip</h3>
                             <div class="form-group mb-3">
                                 <label>Token Login Juri</label>
-                                <div style="display:flex; gap:10px;">
+                                <div style="display:flex; gap:5px; flex-wrap:wrap;">
                                     <input type="text" id="confJudgeToken" class="form-control" placeholder="JURI123"
-                                        onchange="window.saveSettings()">
-                                    <button class="btn-secondary" onclick="window.saveSettings()"><i
-                                            class="fas fa-save"></i></button>
+                                        onchange="window.saveSettings()" style="flex:1; min-width:120px;">
+                                    <button class="btn-secondary" onclick="window.saveSettings()"
+                                        title="Simpan Token Manual"><i class="fas fa-save"></i></button>
+                                    <button class="btn-outline" onclick="window.resetJudgeToken()"
+                                        style="color:#ef4444; border-color:#ef4444"
+                                        title="Ganti Token & Logout Semua Juri Otomatis">
+                                        <i class="fas fa-sync-alt"></i> Reset
+                                    </button>
                                 </div>
                             </div>
                             <p class="hint">Token ini digunakan Juri untuk login.</p>
