@@ -380,28 +380,31 @@ function updateUIConfig(config) {
 function renderParticipants(participantsMap) {
     const grid = document.getElementById('scoringContainer');
 
-    // Safety & Empty State Handler
-    if (!participantsMap || Object.keys(participantsMap).length === 0) {
-        grid.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-clipboard-list" style="font-size:3em; color:var(--text-muted); margin-bottom:10px;"></i>
-                <p>Belum ada peserta.</p>
-            </div>
-        `;
-        return;
-    }
-
     // Sort participants
     const sorted = Object.entries(participantsMap).sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
 
-    // 1. Remove deleted items (items in DOM but not in new Data)
-    Array.from(grid.children).forEach(child => {
-        if (child.classList.contains('empty-state')) {
-            child.remove(); // Remove empty state if we have data
-        } else if (child.dataset.pid && !participantsMap[child.dataset.pid]) {
-            child.remove(); // Remove participant card
+    // 1. SCORING GRID UPDATE (Only if grid exists)
+    if (grid) {
+        // Handle Empty State Visually
+        if (Object.keys(participantsMap).length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list" style="font-size:3em; color:var(--text-muted); margin-bottom:10px;"></i>
+                    <p>Belum ada peserta.</p>
+                </div>
+            `;
+            // Do not return here, we still need to update Admin List
+        } else {
+            // 1. Remove deleted items (items in DOM but not in new Data)
+            Array.from(grid.children).forEach(child => {
+                if (child.classList.contains('empty-state')) {
+                    child.remove(); // Remove empty state if we have data
+                } else if (child.dataset.pid && !participantsMap[child.dataset.pid]) {
+                    child.remove(); // Remove participant card
+                }
+            });
         }
-    });
+    }
 
     // 2. Add or Update items
     sorted.forEach(([id, p]) => {
@@ -556,22 +559,26 @@ function renderParticipants(participantsMap) {
     // LIST ADMIN (Simple redraw is fine here as no inputs)
     const list = document.getElementById('participantListAdmin');
     if (list) {
-        list.innerHTML = sorted.map(([id, p]) => `
-            <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span id="pNameAdmin-${id}">${p.name}</span>
-                    <button onclick="window.editParticipantName('${id}', '${p.name.replace(/'/g, "\\'")}')" class="btn-sm text-primary" style="background:none; border:none; cursor:pointer;" title="Edit Nama">
-                        <i class="fas fa-edit"></i>
-                    </button>
+        if (sorted.length === 0) {
+            list.innerHTML = '<div class="text-center text-muted p-4" style="background:rgba(255,255,255,0.05); border-radius:10px;">Belum ada peserta. Klik "Tambah Peserta" diatas.</div>';
+        } else {
+            list.innerHTML = sorted.map(([id, p]) => `
+                <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span id="pNameAdmin-${id}">${p.name}</span>
+                        <button onclick="window.editParticipantName('${id}', '${p.name.replace(/'/g, "\\'")}')" class="btn-sm text-primary" style="background:none; border:none; cursor:pointer;" title="Edit Nama">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div>
+                         <!-- Lock indicator logic -->
+                        ${p.locked ? `<button onclick="window.unlockParticipant('${id}')" class="text-warning mr-2" title="Buka"><i class="fas fa-lock-open"></i></button>` : ''}
+                        <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
+                        <button onclick="window.deleteParticipant('${id}')" class="text-danger"><i class="fas fa-trash"></i></button>
+                    </div>
                 </div>
-                <div>
-                     <!-- Lock indicator logic -->
-                    ${p.locked ? `<button onclick="window.unlockParticipant('${id}')" class="text-warning mr-2" title="Buka"><i class="fas fa-lock-open"></i></button>` : ''}
-                    <span class="badge ${p.locked ? 'bg-danger' : 'bg-success'} mr-2">${p.locked ? 'Final' : 'Draft'}</span>
-                    <button onclick="window.deleteParticipant('${id}')" class="text-danger"><i class="fas fa-trash"></i></button>
-                </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
     }
 }
 
