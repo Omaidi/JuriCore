@@ -1447,6 +1447,26 @@ window.deleteRank = (idx) => {
     update(ref(db, 'config'), { ranks: current });
 };
 
+window.presetStandardRanks = () => {
+    Swal.fire({
+        title: 'Reset ke Standar?',
+        text: "Juara 1 (91-100), Juara 2 (81-90), Juara 3 (71-80)",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Ya, Reset'
+    }).then((r) => {
+        if (r.isConfirmed) {
+            const standard = [
+                { label: "JUARA 1", min: 91, max: 100 },
+                { label: "JUARA 2", min: 81, max: 90 },
+                { label: "JUARA 3", min: 71, max: 80 }
+            ];
+            update(ref(db, 'config'), { ranks: standard });
+        }
+    });
+};
+
 window.copyToken = () => {
     const t = document.getElementById('tokenDisplay').innerText;
     navigator.clipboard.writeText(t);
