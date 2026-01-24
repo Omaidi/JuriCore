@@ -377,40 +377,99 @@ function updateUIConfig(config) {
 
 // INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
 // INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
-function renderParticipants(participantsMap) {
+// NEW: Filter Function
+window.filterParticipants = () => {
+    // Just trigger re-render, the renderer will pick up the value
+    renderParticipants(appState.data.participants);
+};
+
+// INTELLIGENT RENDERER: Updates DOM instead of replacing it to prevent Focus Loss
+function renderParticipants(participantsMap, explicitFilter = null) {
     // Safety Fallback
     if (!participantsMap) participantsMap = {};
 
+    // Get Filter Query (Arg or DOM)
+    let filterQuery = explicitFilter;
+    if (filterQuery === null) {
+        const searchEl = document.getElementById('searchParticipant');
+        filterQuery = searchEl ? searchEl.value.toLowerCase() : '';
+    }
+
     const grid = document.getElementById('scoringContainer');
 
-    // Sort participants
-    const sorted = Object.entries(participantsMap).sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
+    // 1. Sort participants (Newest First) -> Define "No Urut"
+    // We Map FIRST to assign persistent Index/Number
+    const sortedEntries = Object.entries(participantsMap).sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0));
 
-    // 1. SCORING GRID UPDATE (Only if grid exists)
+    // Create List with Ordinal Numbers (Index + 1)
+    // Note: displayIndex is 1-based.
+    // Logic: "No Urut" based on current sorting.
+    const allItems = sortedEntries.map(([id, p], idx) => ({
+        id,
+        p,
+        num: sortedEntries.length - idx // Reverse (Oldest #1)? Or Newest #1?
+        // User asked for "Nomor Urut". Usually means Register Order.
+        // If sorting is Newest First (b - a), then the Last Item is the First Registered.
+        // So item at idx 0 is Newest -> Limit. item at last idx is Oldest -> 1.
+        // Let's use Register Order: Newest = N, Oldest = 1.
+    }));
+
+    // Easier for finding: Just 1..N on the list displayed? 
+    // If I just registered, I am #1 or #100?
+    // Let's stick to VISUAL ORDER for now (1 = Top/Newest). 
+    // The user said "nomor urut ... biar gampang cari".
+    // If list changes order, numbers change. But list order is static based on createdAt.
+    // Let's use Index + 1.
+    const numberedList = sortedEntries.map(([id, p], idx) => ({ id, p, num: idx + 1 }));
+
+    // 2. Filter List
+    const displayList = numberedList.filter(item => {
+        if (!filterQuery) return true;
+        const nameMatch = item.p.name.toLowerCase().includes(filterQuery);
+        const numMatch = item.num.toString().includes(filterQuery);
+        return nameMatch || numMatch;
+    });
+
+    const displayIDs = new Set(displayList.map(i => i.id));
+
+    // 3. SCORING GRID UPDATE
     if (grid) {
-        // Handle Empty State Visually
-        if (Object.keys(participantsMap).length === 0) {
+        // Empty State (If config matches but no data OR Filter returns nothing)
+        const showEmpty = displayList.length === 0;
+
+        // Update Grid Content
+        if (showEmpty && !filterQuery && Object.keys(participantsMap).length === 0) {
             grid.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-clipboard-list" style="font-size:3em; color:var(--text-muted); margin-bottom:10px;"></i>
                     <p>Belum ada peserta.</p>
                 </div>
             `;
-            // Do not return here, we still need to update Admin List
         } else {
-            // 1. Remove deleted items (items in DOM but not in new Data)
+            // Cleanup & Hide/Show Logic
             Array.from(grid.children).forEach(child => {
                 if (child.classList.contains('empty-state')) {
-                    child.remove(); // Remove empty state if we have data
-                } else if (child.dataset.pid && !participantsMap[child.dataset.pid]) {
-                    child.remove(); // Remove participant card
+                    child.remove();
+                } else if (child.dataset.pid) {
+                    // If not in Source Data -> Remove
+                    if (!participantsMap[child.dataset.pid]) {
+                        child.remove();
+                    }
+                    // If in Source but Filtered Out -> Hide
+                    else if (!displayIDs.has(child.dataset.pid)) {
+                        child.style.display = 'none';
+                    }
+                    // Else Ensure Visible
+                    else {
+                        if (child.style.display === 'none') child.style.display = '';
+                    }
                 }
             });
         }
     }
 
-    // 2. Add or Update items
-    sorted.forEach(([id, p]) => {
+    // 4. Render / Update Display List
+    displayList.forEach(({ id, p, num }) => {
         let card = document.getElementById(`card-${id}`);
         const totalScore = calculateTotal(p.scores, appState.data.config.criteria);
         // Determine State
@@ -418,16 +477,19 @@ function renderParticipants(participantsMap) {
         const isSubmitted = p.submitted === true;
 
         // CREATE NEW CARD
-        if (!card) {
+        if (!card && grid) {
             card = document.createElement('div');
             card.id = `card-${id}`;
             card.dataset.pid = id;
             card.className = "participant-card animate__animated animate__zoomIn";
 
-            // Basic Structure
+            // Basic Structure - Replaced p-name with numbered HTML
             card.innerHTML = `
                 <div class="p-header">
-                    <div class="p-name">${p.name}</div>
+                    <div class="p-name">
+                        <span class="badge" style="background:rgba(255,255,255,0.1); margin-right:5px; font-size:0.8em">#${num}</span>
+                        <span class="real-name">${p.name}</span>
+                    </div>
                     <div class="p-score" id="score-${id}">0</div>
                 </div>
                 <div id="inputs-${id}"></div>
@@ -437,6 +499,14 @@ function renderParticipants(participantsMap) {
             `;
             grid.appendChild(card);
         }
+
+        if (!card) return; // Guard if grid missing
+
+        // UPDATE NUMBER (In case sorting changed)
+        const nameEl = card.querySelector('.real-name');
+        const badgeEl = card.querySelector('.badge');
+        if (nameEl && nameEl.innerText !== p.name) nameEl.innerText = p.name;
+        if (badgeEl && badgeEl.innerText !== `#${num}`) badgeEl.innerText = `#${num}`;
 
         // UPDATE BUTTONS DYNAMICALLY
         const actionContainer = document.getElementById(`actions-${id}`);
@@ -478,31 +548,11 @@ function renderParticipants(participantsMap) {
         const scoreEl = document.getElementById(`score-${id}`);
         if (scoreEl.innerText !== totalScore) scoreEl.innerText = totalScore;
 
-        // 2. Locked State update (for button text/style)
-        if (appState.user.role === 'admin') {
-            const lockBtn = document.getElementById(`lock-${id}`);
-            if (lockBtn) {
-                if (isLocked) {
-                    lockBtn.innerHTML = '<i class="fas fa-lock"></i> TERKUNCI';
-                    lockBtn.classList.add('btn-danger');
-                    lockBtn.classList.remove('btn-secondary');
-                } else {
-                    lockBtn.innerHTML = '<i class="fas fa-unlock"></i> SIMPAN';
-                    lockBtn.classList.add('btn-secondary');
-                    lockBtn.classList.remove('btn-danger');
-                }
-            }
-        }
-
-
-        // 3. Inputs Logic
+        // 2. Inputs Logic
         const inputsContainer = document.getElementById(`inputs-${id}`);
         const criteria = appState.data.config.criteria || [];
 
-        // Determine Input Lock State (Perm Locked or Soft Submitted)
-        // ADMIN Should NOT be able to edit scores.
         const isAdmin = appState.user.role === 'admin';
-        // ADMIN NOW ALLOWED TO EDIT (Updated for hotfix)
         const disableInputs = isPermLocked || isSubmitted;
 
         // Ensure inputs match criteria length
@@ -562,12 +612,13 @@ function renderParticipants(participantsMap) {
     // LIST ADMIN (Simple redraw is fine here as no inputs)
     const list = document.getElementById('participantListAdmin');
     if (list) {
-        if (sorted.length === 0) {
-            list.innerHTML = '<div class="text-center text-muted p-4" style="background:rgba(255,255,255,0.05); border-radius:10px;">Belum ada peserta. Klik "Tambah Peserta" diatas.</div>';
+        if (displayList.length === 0) {
+            list.innerHTML = '<div class="text-center text-muted p-4" style="background:rgba(255,255,255,0.05); border-radius:10px;">Belum ada peserta (atau tidak ditemukan).</div>';
         } else {
-            list.innerHTML = sorted.map(([id, p]) => `
+            list.innerHTML = displayList.map(({ id, p, num }) => `
                 <div class="glass-panel mb-2 flex justify-between" style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="badge" style="background:rgba(255,255,255,0.1); font-size:0.8em">#${num}</span>
                         <span id="pNameAdmin-${id}">${p.name}</span>
                         <button onclick="window.editParticipantName('${id}', '${p.name.replace(/'/g, "\\'")}')" class="btn-sm text-primary" style="background:none; border:none; cursor:pointer;" title="Edit Nama">
                             <i class="fas fa-edit"></i>
