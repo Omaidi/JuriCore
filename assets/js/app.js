@@ -585,8 +585,8 @@ function renderParticipants(participantsMap) {
     }
 }
 
-function getPredikat(score) {
-    const ranks = appState.data.config.ranks || [];
+function getPredikat(score, customRanks = null) {
+    const ranks = customRanks || appState.data.config.ranks || [];
     // Sort by min descending to match highest first
     // or just find the one that fits
     const match = ranks.find(r => score >= parseFloat(r.min) && score <= parseFloat(r.max));
@@ -1218,7 +1218,7 @@ window.loadArchive = (key) => {
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
-        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore).label]);
+        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore, item.config?.ranks).label]);
 
         doc.autoTable({
             head: [['Nama Peserta', 'Total Nilai', 'Predikat/Juara']],
@@ -1256,7 +1256,7 @@ window.downloadArchiveExcel = (key) => {
             .sort((a, b) => b.finalScore - a.finalScore);
 
         parts.forEach((p) => {
-            const pred = getPredikat(p.finalScore);
+            const pred = getPredikat(p.finalScore, item.config?.ranks);
             const row = `"${p.name}",${p.finalScore},${pred.label}`;
             csvContent += row + "\n";
         });
