@@ -1292,19 +1292,25 @@ window.loadArchive = (key) => {
 
         doc.text(`ARSIP: ${title} (${date})`, 14, 20);
 
-        const crit = item.config.criteria || [];
+        // Robust Score Calculation: Sum all entries in scores object irrespective of criteria config
         const parts = Object.values(item.participants || {})
             .map(p => {
-                // Re-calculate based on saved data
                 let total = 0;
-                crit.forEach(c => {
-                    total += parseFloat(p.scores?.[c.name] || 0);
-                });
+                if (p.scores) {
+                    Object.values(p.scores).forEach(val => {
+                        total += parseFloat(val || 0);
+                    });
+                }
                 return { ...p, finalScore: Math.round(total) };
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
-        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore, item.config?.ranks).label]);
+        // Smart Rank Fallback: Use Archived Ranks if exist, otherwise Current Ranks
+        const statsRanks = (item.config && item.config.ranks && item.config.ranks.length > 0)
+            ? item.config.ranks
+            : (appState.data.config.ranks || []);
+
+        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore, statsRanks).label]);
 
         doc.autoTable({
             head: [['Nama Peserta', 'Total Nilai', 'Predikat/Juara']],
@@ -1322,27 +1328,26 @@ window.downloadArchiveExcel = (key) => {
         if (!item) return;
 
         const title = item.config.title || "Lomba";
-        const crit = item.config.criteria || [];
-
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Nama Peserta,Total Nilai,Predikat/Juara";
-
-        // Add Criteria Headers ? Optional. Keeping simple as requested first.
-        // csvContent += "," + crit.map(c => c.name).join(","); 
-        csvContent += "\n";
-
+        // Robust Score Calculation
         const parts = Object.values(item.participants || {})
             .map(p => {
                 let total = 0;
-                crit.forEach(c => {
-                    total += parseFloat(p.scores?.[c.name] || 0);
-                });
+                if (p.scores) {
+                    Object.values(p.scores).forEach(val => {
+                        total += parseFloat(val || 0);
+                    });
+                }
                 return { ...p, finalScore: Math.round(total) };
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
+        // Smart Rank Fallback
+        const statsRanks = (item.config && item.config.ranks && item.config.ranks.length > 0)
+            ? item.config.ranks
+            : (appState.data.config.ranks || []);
+
         parts.forEach((p) => {
-            const pred = getPredikat(p.finalScore, item.config?.ranks);
+            const pred = getPredikat(p.finalScore, statsRanks);
             const row = `"${p.name}",${p.finalScore},${pred.label}`;
             csvContent += row + "\n";
         });
