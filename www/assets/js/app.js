@@ -1201,6 +1201,9 @@ window.toggleArchiveView = () => {
                             <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="flex:1; background:#10b981; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
                                  <i class="fas fa-file-excel"></i> Excel
                             </button>
+                            <button onclick="window.repairArchive('${key}')" class="btn-sm" style="flex:0.5; background:#f59e0b; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Perbaiki Aturan (Update Config)">
+                                 <i class="fas fa-wrench"></i>
+                            </button>
                             <button onclick="window.deleteArchive('${key}')" class="btn-sm" style="flex:0.5; background:#ef4444; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Hapus Arsip">
                                  <i class="fas fa-trash"></i>
                             </button>
@@ -1236,6 +1239,38 @@ window.deleteArchive = (key) => {
                 })
                 .catch((err) => {
                     Swal.fire('Gagal', 'Gagal menghapus: ' + err.message, 'error');
+                });
+        }
+    });
+};
+
+window.repairArchive = (key) => {
+    Swal.fire({
+        title: 'Perbaiki Arsip?',
+        html: `<p>Aksi ini akan menyalin <b>Pengaturan Juara & Kriteria</b> yang sedang aktif sekarang ke dalam Arsip ini.</p>
+               <p style="font-size:0.9em; color:#f59e0b;">Gunakan ini jika Arsip tersimpan dengan aturan yang salah.</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Ya, Update Arsip',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Copy current config to archive
+            const currentConfig = appState.data.config;
+            if (!currentConfig) {
+                Swal.fire('Error', 'Gagal membaca konfigurasi saat ini.', 'error');
+                return;
+            }
+            update(ref(db, `archives/${key}/config`), {
+                ranks: currentConfig.ranks || [],
+                criteria: currentConfig.criteria || []
+            })
+                .then(() => {
+                    Swal.fire('Sukses', 'Arsip telah diperbarui dengan aturan terbaru.', 'success');
+                })
+                .catch((err) => {
+                    Swal.fire('Gagal', err.message, 'error');
                 });
         }
     });
