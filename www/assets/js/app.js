@@ -1337,6 +1337,9 @@ window.downloadArchiveExcel = (key) => {
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Nama Peserta,Total Nilai,Predikat/Juara\n";
+
         // Smart Rank Fallback
         const statsRanks = (item.config && item.config.ranks && item.config.ranks.length > 0)
             ? item.config.ranks
