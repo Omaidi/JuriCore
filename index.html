@@ -257,8 +257,13 @@
                         <p class="text-muted" style="font-size:0.9em; margin-bottom:10px;">Atur rentang nilai untuk
                             predikat juara.</p>
                         <div id="rankListConfig"></div>
-                        <button class="btn-outline" style="width:100%; margin-top:10px;" onclick="window.addRank()">+
-                            Tambah Predikat</button>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn-outline" style="flex:1" onclick="window.addRank()">+ Tambah</button>
+                            <button class="btn-outline"
+                                style="flex:1; border-color:var(--primary); color:var(--primary)"
+                                onclick="window.presetStandardRanks()"><i class="fas fa-magic"></i> Reset Standar
+                                (71-100)</button>
+                        </div>
                     </div>
 
                     <div class="glass-panel">
@@ -307,12 +312,12 @@
 
     <!-- MODULE ENTRY POINT -->
     <!-- MODULE ENTRY POINT -->
-    <script type="module" src="assets/js/app.js?v=2.6"></script>
+    <script type="module" src="assets/js/app.js?v=2.7"></script>
 
     <!-- PWA Service Worker Registration -->
     <script>
         // === AUTO CACHE CLEARING SYSTEM ===
-        const CURRENT_VERSION = '2.6';
+        const CURRENT_VERSION = '2.7';
 
         window.addEventListener('load', async () => {
             const storedVersion = localStorage.getItem('app_version');

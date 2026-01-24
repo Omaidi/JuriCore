@@ -1201,6 +1201,9 @@ window.toggleArchiveView = () => {
                             <button onclick="window.downloadArchiveExcel('${key}')" class="btn-sm" style="flex:1; background:#10b981; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Download Excel">
                                  <i class="fas fa-file-excel"></i> Excel
                             </button>
+                            <button onclick="window.repairArchive('${key}')" class="btn-sm" style="flex:0.5; background:#f59e0b; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Perbaiki Aturan (Update Config)">
+                                 <i class="fas fa-wrench"></i>
+                            </button>
                             <button onclick="window.deleteArchive('${key}')" class="btn-sm" style="flex:0.5; background:#ef4444; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; transition:0.2s" title="Hapus Arsip">
                                  <i class="fas fa-trash"></i>
                             </button>
@@ -1241,6 +1244,38 @@ window.deleteArchive = (key) => {
     });
 };
 
+window.repairArchive = (key) => {
+    Swal.fire({
+        title: 'Perbaiki Arsip?',
+        html: `<p>Aksi ini akan menyalin <b>Pengaturan Juara & Kriteria</b> yang sedang aktif sekarang ke dalam Arsip ini.</p>
+               <p style="font-size:0.9em; color:#f59e0b;">Gunakan ini jika Arsip tersimpan dengan aturan yang salah.</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Ya, Update Arsip',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Copy current config to archive
+            const currentConfig = appState.data.config;
+            if (!currentConfig) {
+                Swal.fire('Error', 'Gagal membaca konfigurasi saat ini.', 'error');
+                return;
+            }
+            update(ref(db, `archives/${key}/config`), {
+                ranks: currentConfig.ranks || [],
+                criteria: currentConfig.criteria || []
+            })
+                .then(() => {
+                    Swal.fire('Sukses', 'Arsip telah diperbarui dengan aturan terbaru.', 'success');
+                })
+                .catch((err) => {
+                    Swal.fire('Gagal', err.message, 'error');
+                });
+        }
+    });
+};
+
 
 
 window.loadArchive = (key) => {
@@ -1260,7 +1295,6 @@ window.loadArchive = (key) => {
         const crit = item.config.criteria || [];
         const parts = Object.values(item.participants || {})
             .map(p => {
-                // Re-calculate based on saved data
                 let total = 0;
                 crit.forEach(c => {
                     total += parseFloat(p.scores?.[c.name] || 0);
@@ -1269,7 +1303,12 @@ window.loadArchive = (key) => {
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
-        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore, item.config?.ranks).label]);
+        // Smart Rank Fallback: Use Archived Ranks if exist, otherwise Current Ranks
+        const statsRanks = (item.config && item.config.ranks && item.config.ranks.length > 0)
+            ? item.config.ranks
+            : (appState.data.config.ranks || []);
+
+        const rows = parts.map(p => [p.name, p.finalScore, getPredikat(p.finalScore, statsRanks).label]);
 
         doc.autoTable({
             head: [['Nama Peserta', 'Total Nilai', 'Predikat/Juara']],
@@ -1288,14 +1327,6 @@ window.downloadArchiveExcel = (key) => {
 
         const title = item.config.title || "Lomba";
         const crit = item.config.criteria || [];
-
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Nama Peserta,Total Nilai,Predikat/Juara";
-
-        // Add Criteria Headers ? Optional. Keeping simple as requested first.
-        // csvContent += "," + crit.map(c => c.name).join(","); 
-        csvContent += "\n";
-
         const parts = Object.values(item.participants || {})
             .map(p => {
                 let total = 0;
@@ -1306,8 +1337,13 @@ window.downloadArchiveExcel = (key) => {
             })
             .sort((a, b) => b.finalScore - a.finalScore);
 
+        // Smart Rank Fallback
+        const statsRanks = (item.config && item.config.ranks && item.config.ranks.length > 0)
+            ? item.config.ranks
+            : (appState.data.config.ranks || []);
+
         parts.forEach((p) => {
-            const pred = getPredikat(p.finalScore, item.config?.ranks);
+            const pred = getPredikat(p.finalScore, statsRanks);
             const row = `"${p.name}",${p.finalScore},${pred.label}`;
             csvContent += row + "\n";
         });
@@ -1409,6 +1445,26 @@ window.deleteRank = (idx) => {
     const current = appState.data.config.ranks || [];
     current.splice(idx, 1);
     update(ref(db, 'config'), { ranks: current });
+};
+
+window.presetStandardRanks = () => {
+    Swal.fire({
+        title: 'Reset ke Standar?',
+        text: "Juara 1 (91-100), Juara 2 (81-90), Juara 3 (71-80)",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Ya, Reset'
+    }).then((r) => {
+        if (r.isConfirmed) {
+            const standard = [
+                { label: "JUARA 1", min: 91, max: 100 },
+                { label: "JUARA 2", min: 81, max: 90 },
+                { label: "JUARA 3", min: 71, max: 80 }
+            ];
+            update(ref(db, 'config'), { ranks: standard });
+        }
+    });
 };
 
 window.copyToken = () => {
