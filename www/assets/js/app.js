@@ -1292,15 +1292,13 @@ window.loadArchive = (key) => {
 
         doc.text(`ARSIP: ${title} (${date})`, 14, 20);
 
-        // Robust Score Calculation: Sum all entries in scores object irrespective of criteria config
+        const crit = item.config.criteria || [];
         const parts = Object.values(item.participants || {})
             .map(p => {
                 let total = 0;
-                if (p.scores) {
-                    Object.values(p.scores).forEach(val => {
-                        total += parseFloat(val || 0);
-                    });
-                }
+                crit.forEach(c => {
+                    total += parseFloat(p.scores?.[c.name] || 0);
+                });
                 return { ...p, finalScore: Math.round(total) };
             })
             .sort((a, b) => b.finalScore - a.finalScore);
@@ -1328,15 +1326,13 @@ window.downloadArchiveExcel = (key) => {
         if (!item) return;
 
         const title = item.config.title || "Lomba";
-        // Robust Score Calculation
+        const crit = item.config.criteria || [];
         const parts = Object.values(item.participants || {})
             .map(p => {
                 let total = 0;
-                if (p.scores) {
-                    Object.values(p.scores).forEach(val => {
-                        total += parseFloat(val || 0);
-                    });
-                }
+                crit.forEach(c => {
+                    total += parseFloat(p.scores?.[c.name] || 0);
+                });
                 return { ...p, finalScore: Math.round(total) };
             })
             .sort((a, b) => b.finalScore - a.finalScore);
